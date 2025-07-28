@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Табель обліку робочого часу</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <h1>Табель обліку робочого часу</h1>
+        
+        <div class="controls">
+            <div class="date-controls">
+                <label for="month">Місяць:</label>
+                <select id="month">
+                    <option value="0">Січень</option>
+                    <option value="1">Лютий</option>
+                    <option value="2">Березень</option>
+                    <option value="3">Квітень</option>
+                    <option value="4">Травень</option>
+                    <option value="5">Червень</option>
+                    <option value="6">Липень</option>
+                    <option value="7">Серпень</option>
+                    <option value="8">Вересень</option>
+                    <option value="9">Жовтень</option>
+                    <option value="10">Листопад</option>
+                    <option value="11">Грудень</option>
+                </select>
+                
+                <label for="year">Рік:</label>
+                <input type="number" id="year" value="2024" min="2020" max="2030">
+                
+                <button id="generateTable">Згенерувати табель</button>
+            </div>
+            
+            <div class="export-controls">
+                <button id="exportExcel">Експортувати в Excel</button>
+            </div>
+        </div>
+
+        <div class="employee-form">
+            <h2>Додати працівника</h2>
+            <div class="form-row">
+                <label for="fullName">ПІБ:</label>
+                <input type="text" id="fullName" placeholder="Прізвище Ім'я По батькові">
+                
+                <label for="position">Посада:</label>
+                <input type="text" id="position" placeholder="Посада працівника">
+                
+                <label for="personnelNumber">Табельний номер:</label>
+                <input type="text" id="personnelNumber" placeholder="Табельний номер">
+            </div>
+            
+            <div class="form-row">
+                <label for="gender">Стать:</label>
+                <select id="gender">
+                    <option value="Ч">Чоловіча</option>
+                    <option value="Ж">Жіноча</option>
+                </select>
+                
+                <button id="addEmployee" type="button">Додати працівника</button>
+            </div>
+        </div>
+
+        <div id="timesheet-container">
+            <!-- Табель буде згенеровано тут -->
+        </div>
+
+        <div class="legend">
+            <h2>Легенда позначень</h2>
+            <div class="legend-grid">
+                <div class="legend-item"><strong>Р</strong> - Години роботи, передбачені колдоговором</div>
+                <div class="legend-item"><strong>ВЧ</strong> - Вечірні години роботи</div>
+                <div class="legend-item"><strong>РН</strong> - Нічні години роботи</div>
+                <div class="legend-item"><strong>НУ</strong> - Надурочні години роботи</div>
+                <div class="legend-item"><strong>РВ</strong> - Години рахувана відпустка працівникам, які мають дітей</div>
+                <div class="legend-item"><strong>Ч</strong> - Додаткова відпустка передбачена постраждалим внаслідок Чорнобильської катастрофи</div>
+                <div class="legend-item"><strong>ТН</strong> - Оплачувана тимчасова непрацездатність</div>
+                <div class="legend-item"><strong>ІН</strong> - Інші причини неявок</div>
+                <div class="legend-item"><strong>ВБ</strong> - Відпустка учасника бойових дій</div>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
