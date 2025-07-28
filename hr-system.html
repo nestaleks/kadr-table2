@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HR & Payroll Manager</title>
+    <link rel="stylesheet" href="hr-system.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <!-- Заголовок системи -->
+    <header class="app-header">
+        <div class="header-content">
+            <div class="logo">
+                <i class="fas fa-users"></i>
+                <h1>HR & Payroll Manager</h1>
+            </div>
+            <div class="header-actions">
+                <div class="user-info">
+                    <i class="fas fa-user-circle"></i>
+                    <span id="currentUser">Адміністратор</span>
+                </div>
+                <div class="header-buttons">
+                    <button id="backupBtn" class="btn btn-secondary" title="Бекап даних">
+                        <i class="fas fa-download"></i>
+                    </button>
+                    <button id="settingsBtn" class="btn btn-secondary" title="Налаштування">
+                        <i class="fas fa-cog"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Основний контент -->
+    <div class="app-container">
+        <!-- Бічна навігація -->
+        <nav class="sidebar">
+            <div class="nav-section">
+                <h3><i class="fas fa-tachometer-alt"></i> Головна</h3>
+                <ul>
+                    <li><a href="#dashboard" class="nav-link active" data-module="dashboard">
+                        <i class="fas fa-chart-pie"></i> Дашборд
+                    </a></li>
+                </ul>
+            </div>
+
+            <div class="nav-section">
+                <h3><i class="fas fa-users"></i> Кадри</h3>
+                <ul>
+                    <li><a href="#employees" class="nav-link" data-module="employees">
+                        <i class="fas fa-user-friends"></i> Співробітники
+                    </a></li>
+                    <li><a href="#departments" class="nav-link" data-module="departments">
+                        <i class="fas fa-building"></i> Підрозділи
+                    </a></li>
+                    <li><a href="#positions" class="nav-link" data-module="positions">
+                        <i class="fas fa-briefcase"></i> Посади
+                    </a></li>
+                </ul>
+            </div>
+
+            <div class="nav-section">
+                <h3><i class="fas fa-clock"></i> Робочий час</h3>
+                <ul>
+                    <li><a href="#timesheet" class="nav-link" data-module="timesheet">
+                        <i class="fas fa-calendar-check"></i> Табель
+                    </a></li>
+                    <li><a href="#schedules" class="nav-link" data-module="schedules">
+                        <i class="fas fa-calendar-alt"></i> Графіки роботи
+                    </a></li>
+                </ul>
+            </div>
+
+            <div class="nav-section">
+                <h3><i class="fas fa-money-bill-wave"></i> Зарплата</h3>
+                <ul>
+                    <li><a href="#payroll" class="nav-link" data-module="payroll">
+                        <i class="fas fa-calculator"></i> Розрахунок з/п
+                    </a></li>
+                    <li><a href="#payslips" class="nav-link" data-module="payslips">
+                        <i class="fas fa-file-invoice"></i> Розрахункові листки
+                    </a></li>
+                </ul>
+            </div>
+
+            <div class="nav-section">
+                <h3><i class="fas fa-umbrella-beach"></i> Відпустки</h3>
+                <ul>
+                    <li><a href="#vacations" class="nav-link" data-module="vacations">
+                        <i class="fas fa-calendar-plus"></i> Відпустки
+                    </a></li>
+                    <li><a href="#sick-leaves" class="nav-link" data-module="sickLeaves">
+                        <i class="fas fa-notes-medical"></i> Лікарняні
+                    </a></li>
+                </ul>
+            </div>
+
+            <div class="nav-section">
+                <h3><i class="fas fa-chart-bar"></i> Звіти</h3>
+                <ul>
+                    <li><a href="#reports" class="nav-link" data-module="reports">
+                        <i class="fas fa-file-alt"></i> Звітність
+                    </a></li>
+                    <li><a href="#analytics" class="nav-link" data-module="analytics">
+                        <i class="fas fa-chart-line"></i> Аналітика
+                    </a></li>
+                </ul>
+            </div>
+
+            <!-- Швидкі дії -->
+            <div class="quick-actions">
+                <h4>Швидкі дії</h4>
+                <button class="quick-btn" id="addEmployeeQuick">
+                    <i class="fas fa-user-plus"></i>
+                    Додати співробітника
+                </button>
+                <button class="quick-btn" id="openTimesheetQuick">
+                    <i class="fas fa-clock"></i>
+                    Відкрити табель
+                </button>
+                <button class="quick-btn" id="calculatePayrollQuick">
+                    <i class="fas fa-calculator"></i>
+                    Розрахувати з/п
+                </button>
+            </div>
+        </nav>
+
+        <!-- Основна робоча область -->
+        <main class="main-content">
+            <!-- Хлібні крихти -->
+            <div class="breadcrumb">
+                <span id="breadcrumbPath">
+                    <i class="fas fa-home"></i> Головна / Дашборд
+                </span>
+            </div>
+
+            <!-- Динамічний контент модулів -->
+            <div id="moduleContent" class="module-content">
+                <!-- Тут буде завантажуватися контент вибраного модуля -->
+                <div id="loadingSpinner" class="loading-spinner">
+                    <i class="fas fa-spinner fa-spin"></i>
+                    <p>Завантаження...</p>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Модальні вікна -->
+    
+    <!-- Модальне вікно налаштувань -->
+    <div id="settingsModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2><i class="fas fa-cog"></i> Налаштування системи</h2>
+                <button class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="settings-tabs">
+                    <button class="tab-btn active" data-tab="company">Компанія</button>
+                    <button class="tab-btn" data-tab="payroll">Зарплата</button>
+                    <button class="tab-btn" data-tab="vacation">Відпустки</button>
+                    <button class="tab-btn" data-tab="system">Система</button>
+                </div>
+                
+                <div id="settingsContent" class="settings-content">
+                    <!-- Динамічний контент налаштувань -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-primary" id="saveSettings">Зберегти</button>
+                <button class="btn btn-secondary" id="cancelSettings">Скасувати</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Модальне вікно бекапу -->
+    <div id="backupModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2><i class="fas fa-database"></i> Управління даними</h2>
+                <button class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="backup-section">
+                    <h3>Експорт даних</h3>
+                    <p>Створити резервну копію всіх даних системи</p>
+                    <button class="btn btn-primary" id="exportDataBtn">
+                        <i class="fas fa-download"></i> Експортувати дані
+                    </button>
+                </div>
+                
+                <div class="backup-section">
+                    <h3>Імпорт даних</h3>
+                    <p>Відновити дані з резервної копії</p>
+                    <input type="file" id="importFileInput" accept=".json" style="display: none;">
+                    <button class="btn btn-secondary" id="importDataBtn">
+                        <i class="fas fa-upload"></i> Імportувати дані
+                    </button>
+                </div>
+                
+                <div class="backup-section">
+                    <h3>Очистити дані</h3>
+                    <p class="text-danger">УВАГА: Це видалить всі дані назавжди!</p>
+                    <button class="btn btn-danger" id="clearDataBtn">
+                        <i class="fas fa-trash"></i> Очистити всі дані
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Повідомлення -->
+    <div id="notifications" class="notifications-container">
+        <!-- Сюди будуть додаватися повідомлення -->
+    </div>
+
+    <!-- Завантаження скриптів -->
+    <script src="database.js"></script>
+    <script src="data-schemas.js"></script>
+    <script src="hr-system.js"></script>
+    
+    <!-- Модулі системи -->
+    <script src="modules/dashboard.js"></script>
+    <script src="modules/employees.js"></script>
+    <script src="modules/departments.js"></script>
+    <script src="modules/positions.js"></script>
+    <script src="modules/timesheet.js"></script>
+    <script src="modules/payroll.js"></script>
+    <script src="modules/vacations.js"></script>
+    <script src="modules/reports.js"></script>
+</body>
+</html>

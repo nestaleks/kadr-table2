@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Табель обліку робочого часу (оригінальний формат)</title>
+    <link rel="stylesheet" href="timesheet-original.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>ТАБЕЛЬ ОБЛІКУ РОБОЧОГО ЧАСУ</h1>
+            <div class="document-info">
+                <div class="month-year">
+                    <label>За <select id="month">
+                        <option value="0">січень</option>
+                        <option value="1">лютий</option>
+                        <option value="2">березень</option>
+                        <option value="3">квітень</option>
+                        <option value="4">травень</option>
+                        <option value="5">червень</option>
+                        <option value="6">липень</option>
+                        <option value="7">серпень</option>
+                        <option value="8">вересень</option>
+                        <option value="9">жовтень</option>
+                        <option value="10">листопад</option>
+                        <option value="11">грудень</option>
+                    </select></label>
+                    <label><input type="number" id="year" value="2025" min="2020" max="2030"> року</label>
+                </div>
+                <div class="controls">
+                    <button id="generateTable">Згенерувати табель</button>
+                    <button id="addEmployee">Додати працівника</button>
+                    <button id="exportExcel">Експорт в Excel</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Форма додавання працівника -->
+        <div class="employee-form" id="employeeForm">
+            <h3>Додати нового працівника</h3>
+            <div class="form-grid">
+                <div class="form-group">
+                    <label for="empFullName">ПІБ:</label>
+                    <input type="text" id="empFullName" placeholder="Прізвище Ім'я По батькові">
+                </div>
+                <div class="form-group">
+                    <label for="empPosition">Посада:</label>
+                    <input type="text" id="empPosition" placeholder="Назва посади">
+                </div>
+                <div class="form-group">
+                    <label for="empPersonnelNumber">Табельний номер:</label>
+                    <input type="text" id="empPersonnelNumber" placeholder="Номер">
+                </div>
+                <div class="form-group">
+                    <label for="empGender">Стать:</label>
+                    <select id="empGender">
+                        <option value="ч">чоловіча</option>
+                        <option value="ж">жіноча</option>
+                    </select>
+                </div>
+                <div class="form-buttons">
+                    <button type="button" id="submitEmployee">Додати</button>
+                    <button type="button" id="cancelEmployee">Скасувати</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Основна таблиця -->
+        <div class="table-container" id="tableContainer">
+            <!-- Табель буде згенерований тут -->
+        </div>
+
+        <!-- Легенда -->
+        <div class="legend">
+            <h3>Умовні позначення</h3>
+            <div class="legend-grid">
+                <div class="legend-item"><span class="code">Р</span> - Години роботи, передбачені колдоговором</div>
+                <div class="legend-item"><span class="code">ВЧ</span> - Вечірні години роботи</div>
+                <div class="legend-item"><span class="code">РН</span> - Нічні години роботи</div>
+                <div class="legend-item"><span class="code">НУ</span> - Надурочні години роботи</div>
+                <div class="legend-item"><span class="code">РВ</span> - Години рахувана відпустка працívникам, які мають дітей</div>
+                <div class="legend-item"><span class="code">Ч</span> - Додаткова відпустка передбачена постраждалим внаслідок Чорнобильської катастрофи</div>
+                <div class="legend-item"><span class="code">ТН</span> - Оплачувана тимчасова непрацездатність</div>
+                <div class="legend-item"><span class="code">ІН</span> - Інші причини неявок</div>
+                <div class="legend-item"><span class="code">ВБ</span> - Відпустка учасника бойових дій</div>
+            </div>
+        </div>
+    </div>
+
+    <script src="timesheet-original.js"></script>
+</body>
+</html>

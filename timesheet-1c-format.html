@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Табель обліку робочого часу (формат 1С)</title>
+    <link rel="stylesheet" href="timesheet-1c-format.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+</head>
+<body>
+    <div class="document-container">
+        <!-- Заголовок документа -->
+        <div class="document-header">
+            <div class="organization-info">
+                <div class="org-field">
+                    <label>Підприємство:</label>
+                    <input type="text" id="organizationName" value="ТОВ «Назва підприємства»" class="org-input">
+                </div>
+                <div class="org-field">
+                    <label>Структурний підрозділ:</label>
+                    <input type="text" id="departmentName" value="Основний відділ" class="org-input">
+                </div>
+                <div class="org-field">
+                    <label>Код ЄДРПОУ:</label>
+                    <input type="text" id="edrpouCode" value="12345678" class="org-input">
+                </div>
+            </div>
+            
+            <div class="document-title">
+                <h1>ТАБЕЛЬ ОБЛІКУ РОБОЧОГО ЧАСУ</h1>
+                <div class="document-number">
+                    <label>№</label>
+                    <input type="text" id="documentNumber" value="001" class="doc-input">
+                    <label>за</label>
+                    <select id="periodMonth" class="doc-input">
+                        <option value="0">січень</option>
+                        <option value="1">лютий</option>
+                        <option value="2" selected>березень</option>
+                        <option value="3">квітень</option>
+                        <option value="4">травень</option>
+                        <option value="5">червень</option>
+                        <option value="6">липень</option>
+                        <option value="7">серпень</option>
+                        <option value="8">вересень</option>
+                        <option value="9">жовтень</option>
+                        <option value="10">листопад</option>
+                        <option value="11">грудень</option>
+                    </select>
+                    <input type="number" id="periodYear" value="2025" min="2020" max="2030" class="doc-input">
+                    <label>року</label>
+                </div>
+            </div>
+        </div>
+
+        <!-- Панель управління -->
+        <div class="control-panel">
+            <div class="control-group">
+                <button class="btn btn-primary" id="generateTimesheet">
+                    <i class="fas fa-calendar-alt"></i> Згенерувати табель
+                </button>
+                <button class="btn btn-success" id="addEmployeeBtn">
+                    <i class="fas fa-user-plus"></i> Додати співробітника
+                </button>
+                <button class="btn btn-info" id="fillWorkingDays">
+                    <i class="fas fa-magic"></i> Заповнити робочі дні
+                </button>
+            </div>
+            <div class="control-group">
+                <button class="btn btn-warning" id="calculateTotals">
+                    <i class="fas fa-calculator"></i> Підрахувати підсумки
+                </button>
+                <button class="btn btn-secondary" id="exportExcel">
+                    <i class="fas fa-file-excel"></i> Експорт в Excel
+                </button>
+                <button class="btn btn-secondary" id="printTimesheet">
+                    <i class="fas fa-print"></i> Друк
+                </button>
+            </div>
+        </div>
+
+        <!-- Основна таблиця табеля -->
+        <div class="timesheet-wrapper">
+            <table class="timesheet-table" id="timesheetTable">
+                <!-- Заголовок таблиці буде згенеровано динамічно -->
+            </table>
+        </div>
+
+        <!-- Підсумкова інформація -->
+        <div class="summary-section">
+            <div class="summary-row">
+                <span class="summary-label">Кількість робочих днів у періоді:</span>
+                <span class="summary-value" id="workingDaysInPeriod">22</span>
+            </div>
+            <div class="summary-row">
+                <span class="summary-label">Кількість святкових днів у періоді:</span>
+                <span class="summary-value" id="holidaysInPeriod">1</span>
+            </div>
+            <div class="summary-row">
+                <span class="summary-label">Загальна кількість співробітників:</span>
+                <span class="summary-value" id="totalEmployees">0</span>
+            </div>
+        </div>
+
+        <!-- Підписи -->
+        <div class="signatures-section">
+            <div class="signature-block">
+                <div class="signature-line">
+                    <span class="signature-role">Керівник:</span>
+                    <div class="signature-placeholder">
+                        <span class="signature-line-text">_________________</span>
+                        <input type="text" class="signature-name" placeholder="Прізвище та ініціали">
+                    </div>
+                </div>
+                <div class="signature-date">
+                    <label>Дата:</label>
+                    <input type="date" class="signature-date-input" id="signatureDate">
+                </div>
+            </div>
+            
+            <div class="signature-block">
+                <div class="signature-line">
+                    <span class="signature-role">Відповідальна особа:</span>
+                    <div class="signature-placeholder">
+                        <span class="signature-line-text">_________________</span>
+                        <input type="text" class="signature-name" placeholder="Прізвище та ініціали">
+                    </div>
+                </div>
+                <div class="signature-date">
+                    <label>Дата:</label>
+                    <input type="date" class="signature-date-input">
+                </div>
+            </div>
+        </div>
+
+        <!-- Умовні позначення -->
+        <div class="legend-section">
+            <h3>Умовні позначення</h3>
+            <div class="legend-grid">
+                <div class="legend-item">
+                    <span class="legend-code">Я</span>
+                    <span class="legend-desc">Явка на роботу</span>
+                </div>
+                <div class="legend-item">
+                    <span class="legend-code">В</span>
+                    <span class="legend-desc">Відпустка</span>
+                </div>
+                <div class="legend-item">
+                    <span class="legend-code">Л</span>
+                    <span class="legend-desc">Лікарняний</span>
+                </div>
+                <div class="legend-item">
+                    <span class="legend-code">К</span>
+                    <span class="legend-desc">Відрядження</span>
+                </div>
+                <div class="legend-item">
+                    <span class="legend-code">Н</span>
+                    <span class="legend-desc">Неявка невиправдана</span>
+                </div>
+                <div class="legend-item">
+                    <span class="legend-code">П</span>
+                    <span class="legend-desc">Прогул</span>
+                </div>
+                <div class="legend-item">
+                    <span class="legend-code">Р</span>
+                    <span class="legend-desc">Вихідний день</span>
+                </div>
+                <div class="legend-item">
+                    <span class="legend-code">С</span>
+                    <span class="legend-desc">Святковий день</span>
+                </div>
+                <div class="legend-item">
+                    <span class="legend-code">М</span>
+                    <span class="legend-desc">Відпустка по догляду за дитиною</span>
+                </div>
+                <div class="legend-item">
+                    <span class="legend-code">Д</span>
+                    <span class="legend-desc">Додаткова відпустка</span>
+                </div>
+                <div class="legend-item">
+                    <span class="legend-code">З</span>
+                    <span class="legend-desc">Запізнення</span>
+                </div>
+                <div class="legend-item">
+                    <span class="legend-code">О</span>
+                    <span class="legend-desc">Понаднормовий час</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Модальне вікно додавання співробітника -->
+    <div class="modal" id="employeeModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><i class="fas fa-user-plus"></i> Додати співробітника</h3>
+                <button class="modal-close" id="closeModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="employeeForm">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="empTabNumber">Табельний номер:</label>
+                            <input type="text" id="empTabNumber" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="empFullName">Прізвище Ім'я По батькові:</label>
+                            <input type="text" id="empFullName" required>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="empPosition">Посада:</label>
+                            <input type="text" id="empPosition" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="empDepartment">Підрозділ:</label>
+                            <input type="text" id="empDepartment">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="empSchedule">Графік роботи:</label>
+                            <select id="empSchedule">
+                                <option value="full">Повний день (8 годин)</option>
+                                <option value="part">Неповний день</option>
+                                <option value="shift">Змінний графік</option>
+                                <option value="flexible">Гнучкий графік</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="empWorkingHours">Норма годин/день:</label>
+                            <input type="number" id="empWorkingHours" value="8" min="1" max="12" step="0.5">
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-primary" id="saveEmployee">
+                    <i class="fas fa-save"></i> Зберегти
+                </button>
+                <button class="btn btn-secondary" id="cancelEmployee">
+                    <i class="fas fa-times"></i> Скасувати
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Завантаження скриптів -->
+    <script src="timesheet-1c-format.js"></script>
+</body>
+</html>

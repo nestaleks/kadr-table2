@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(mkdir:*)",
+      "Bash(del march-2025.xlsm)",
+      "Bash(rm:*)"
+    ],
+    "deny": []
+  }
+}
