@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Тест модуля відряджень</title>
+    <link rel="stylesheet" href="hr-system.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <div id="testContainer"></div>
+
+    <!-- Include required scripts -->
+    <script src="data-schemas.js"></script>
+    <script src="database.js"></script>
+    <script src="modules/base-module.js"></script>
+    <script src="modules/business-trips.js"></script>
+
+    <script>
+        async function testBusinessTripsModule() {
+            try {
+                console.log('Ініціалізація тестового модуля відряджень...');
+                
+                // Initialize database
+                const database = await initializeDatabase();
+                console.log('База даних ініціалізована');
+                
+                // Create test employee
+                const testEmployee = {
+                    fullName: 'Тестовий Користувач',
+                    position: 'Менеджер',
+                    status: 'active'
+                };
+                const employeeId = await database.add('employees', testEmployee);
+                console.log('Тестовий співробітник створений:', employeeId);
+                
+                // Create business trips module
+                const businessTripsModule = new BusinessTripsModule(database);
+                window.businessTripsModule = businessTripsModule;
+                
+                // Render module
+                const content = await businessTripsModule.render();
+                document.getElementById('testContainer').innerHTML = content;
+                
+                // Initialize module
+                await businessTripsModule.init();
+                
+                console.log('Модуль відряджень успішно ініціалізований');
+                
+            } catch (error) {
+                console.error('Помилка тестування модуля:', error);
+            }
+        }
+        
+        // Run test when page loads
+        window.addEventListener('load', testBusinessTripsModule);
+    </script>
+</body>
+</html>

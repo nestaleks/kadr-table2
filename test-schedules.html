@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Тест модуля Графіки роботи</title>
+    <link rel="stylesheet" href="test-styles.css">
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .error { color: red; background: #ffebee; padding: 10px; margin: 10px 0; }
+        .success { color: green; background: #e8f5e8; padding: 10px; margin: 10px 0; }
+        .test-result { margin: 10px 0; padding: 10px; border: 1px solid #ccc; }
+        #moduleTest { margin-top: 30px; border: 1px solid #ddd; padding: 20px; }
+    </style>
+</head>
+<body>
+    <h1>Тест модуля Графіки роботи</h1>
+    <div id="testResults"></div>
+    
+    <div id="moduleTest">
+        <h2>Тест рендерингу модуля</h2>
+        <button onclick="testModuleRender()">Протестувати рендеринг</button>
+        <div id="moduleContent"></div>
+    </div>
+    
+    <script>
+        const testResults = document.getElementById('testResults');
+        
+        function addResult(message, isError = false) {
+            const div = document.createElement('div');
+            div.className = isError ? 'error' : 'success';
+            div.textContent = message;
+            testResults.appendChild(div);
+        }
+        
+        // Тест 1: Перевірка завантаження BaseModule
+        try {
+            if (typeof BaseModule !== 'undefined') {
+                addResult('✓ BaseModule завантажено успішно');
+            } else {
+                throw new Error('BaseModule не знайдено');
+            }
+        } catch (error) {
+            addResult('✗ Помилка BaseModule: ' + error.message, true);
+        }
+        
+        // Тест 2: Перевірка завантаження SchedulesModule
+        try {
+            if (typeof SchedulesModule !== 'undefined') {
+                addResult('✓ SchedulesModule завантажено успішно');
+            } else {
+                throw new Error('SchedulesModule не знайдено');
+            }
+        } catch (error) {
+            addResult('✗ Помилка SchedulesModule: ' + error.message, true);
+        }
+        
+        // Тест 3: Перевірка створення екземпляра
+        try {
+            const mockDatabase = {
+                getAll: async () => [],
+                add: async () => {},
+                update: async () => {},
+                delete: async () => {}
+            };
+            
+            const scheduleModule = new SchedulesModule(mockDatabase);
+            addResult('✓ Екземпляр SchedulesModule створено успішно');
+            
+            // Тест методів
+            if (typeof scheduleModule.render === 'function') {
+                addResult('✓ Метод render() існує');
+            }
+            if (typeof scheduleModule.init === 'function') {
+                addResult('✓ Метод init() існує');
+            }
+            if (typeof scheduleModule.loadData === 'function') {
+                addResult('✓ Метод loadData() існує');
+            }
+            
+        } catch (error) {
+            addResult('✗ Помилка створення екземпляра: ' + error.message, true);
+        }
+        
+        // Мок hrSystem для тестування
+        window.hrSystem = {
+            showModal: function(modal) {
+                modal.style.display = 'flex';
+                modal.classList.add('show');
+            },
+            closeModal: function(modal) {
+                modal.style.display = 'none';
+                modal.classList.remove('show');
+            },
+            showNotification: function(message, type) {
+                console.log(`${type.toUpperCase()}: ${message}`);
+                addResult(`📢 ${message}`, type === 'error');
+            }
+        };
+        
+        // Функція тестування рендерингу
+        window.testModuleRender = async function() {
+            try {
+                const mockDatabase = {
+                    getAll: async (table) => {
+                        if (table === 'schedules') return [];
+                        if (table === 'employees') return [];
+                        if (table === 'scheduleTemplates') return [];
+                        return [];
+                    },
+                    add: async () => ({ id: 1 }),
+                    update: async () => {},
+                    delete: async () => {}
+                };
+                
+                const scheduleModule = new SchedulesModule(mockDatabase);
+                const html = await scheduleModule.render();
+                
+                document.getElementById('moduleContent').innerHTML = html;
+                addResult('✓ Модуль успішно відрендерено');
+                
+            } catch (error) {
+                addResult('✗ Помилка рендерингу: ' + error.message, true);
+                console.error('Повна помилка:', error);
+            }
+        }
+    </script>
+    
+    <!-- Завантаження залежностей -->
+    <script src="database.js"></script>
+    <script src="hr-system.js"></script>
+    <script src="modules/schedules.js"></script>
+</body>
+</html>

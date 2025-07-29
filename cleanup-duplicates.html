@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Очищення дублікатів</title>
+</head>
+<body>
+    <h1>Очищення дублікатів відряджень</h1>
+    <button id="cleanupBtn">Видалити дублікати</button>
+    <div id="result"></div>
+
+    <script src="database.js"></script>
+    <script>
+        async function cleanupDuplicates() {
+            try {
+                const database = await initializeDatabase();
+                const trips = await database.getAll('businessTrips');
+                
+                console.log(`Знайдено ${trips.length} відряджень`);
+                
+                // Групуємо за унікальними полями
+                const uniqueTrips = new Map();
+                const duplicates = [];
+                
+                trips.forEach(trip => {
+                    const key = `${trip.employeeId}-${trip.title}-${trip.startDate}-${trip.endDate}`;
+                    
+                    if (uniqueTrips.has(key)) {
+                        // Це дублікат
+                        duplicates.push(trip);
+                    } else {
+                        // Це унікальний запис
+                        uniqueTrips.set(key, trip);
+                    }
+                });
+                
+                console.log(`Знайдено ${duplicates.length} дублікатів`);
+                
+                // Видаляємо дублікати
+                for (const duplicate of duplicates) {
+                    await database.delete('businessTrips', duplicate.id);
+                    console.log(`Видалено дублікат ID: ${duplicate.id}`);
+                }
+                
+                document.getElementById('result').innerHTML = 
+                    `<p>Видалено ${duplicates.length} дублікатів з ${trips.length} записів</p>
+                     <p>Залишилося ${uniqueTrips.size} унікальних відряджень</p>`;
+                
+            } catch (error) {
+                console.error('Помилка очищення:', error);
+                document.getElementById('result').innerHTML = 
+                    `<p style="color: red;">Помилка: ${error.message}</p>`;
+            }
+        }
+        
+        document.getElementById('cleanupBtn').addEventListener('click', cleanupDuplicates);
+    </script>
+</body>
+</html>

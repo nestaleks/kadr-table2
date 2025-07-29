@@ -1,0 +1,448 @@
+/* Стилі для модуля виробничого календаря */
+
+.production-calendar-module {
+    padding: 20px;
+}
+
+/* Статистика календаря */
+.calendar-stats {
+    display: flex;
+    gap: 20px;
+    margin: 20px 0;
+    flex-wrap: wrap;
+}
+
+.calendar-stats .stat-item {
+    flex: 1;
+    min-width: 150px;
+    padding: 15px;
+    border-radius: 8px;
+    text-align: center;
+    color: white;
+    font-weight: bold;
+}
+
+.calendar-stats .stat-item.working {
+    background: linear-gradient(135deg, #28a745, #20c997);
+}
+
+.calendar-stats .stat-item.weekend {
+    background: linear-gradient(135deg, #6c757d, #495057);
+}
+
+.calendar-stats .stat-item.holiday {
+    background: linear-gradient(135deg, #dc3545, #c82333);
+}
+
+.calendar-stats .stat-item.shortened {
+    background: linear-gradient(135deg, #ffc107, #e0a800);
+}
+
+.calendar-stats .stat-number {
+    display: block;
+    font-size: 32px;
+    font-weight: bold;
+    margin-bottom: 5px;
+}
+
+.calendar-stats .stat-label {
+    font-size: 14px;
+    opacity: 0.9;
+}
+
+/* Легенда календаря */
+.calendar-legend {
+    display: flex;
+    gap: 20px;
+    margin: 20px 0;
+    padding: 15px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    flex-wrap: wrap;
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+}
+
+.legend-color {
+    width: 16px;
+    height: 16px;
+    border-radius: 3px;
+    border: 1px solid #ddd;
+}
+
+.legend-color.working {
+    background: #28a745;
+}
+
+.legend-color.weekend {
+    background: #6c757d;
+}
+
+.legend-color.holiday {
+    background: #dc3545;
+}
+
+.legend-color.shortened {
+    background: #ffc107;
+}
+
+.legend-color.transferred {
+    background: #17a2b8;
+}
+
+/* Календарна сітка */
+.production-calendar-grid {
+    margin: 20px 0;
+}
+
+.calendar-year-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 20px;
+}
+
+.calendar-month {
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    overflow: hidden;
+    background: white;
+}
+
+.month-header {
+    background: #f8f9fa;
+    padding: 10px 15px;
+    border-bottom: 1px solid #dee2e6;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.month-header h4 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+}
+
+.month-stats {
+    font-size: 14px;
+    color: #6c757d;
+}
+
+.month-stats .working-days {
+    font-weight: bold;
+    color: #28a745;
+}
+
+.month-calendar {
+    padding: 10px;
+}
+
+.weekdays {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 2px;
+    margin-bottom: 5px;
+}
+
+.weekday {
+    text-align: center;
+    font-size: 11px;
+    font-weight: bold;
+    color: #6c757d;
+    padding: 5px 2px;
+}
+
+.month-days {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 2px;
+}
+
+.calendar-day {
+    position: relative;
+    aspect-ratio: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.calendar-day.empty {
+    cursor: default;
+}
+
+.calendar-day:not(.empty):hover {
+    transform: scale(1.1);
+    z-index: 2;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+}
+
+/* Типи днів */
+.calendar-day.working {
+    background: #d4edda;
+    color: #155724;
+    border: 1px solid #c3e6cb;
+}
+
+.calendar-day.weekend {
+    background: #d1ecf1;
+    color: #0c5460;
+    border: 1px solid #bee5eb;
+}
+
+.calendar-day.holiday {
+    background: #f8d7da;
+    color: #721c24;
+    border: 1px solid #f5c6cb;
+}
+
+.calendar-day.shortened {
+    background: #fff3cd;
+    color: #856404;
+    border: 1px solid #ffeaa7;
+}
+
+.calendar-day.transferred {
+    background: #d1ecf1;
+    color: #0c5460;
+    border: 2px solid #17a2b8;
+}
+
+.calendar-day.today {
+    box-shadow: 0 0 0 2px #007bff;
+    font-weight: bold;
+}
+
+.calendar-day .day-number {
+    position: relative;
+    z-index: 1;
+}
+
+.calendar-day .holiday-indicator {
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    width: 6px;
+    height: 6px;
+    background: #dc3545;
+    border-radius: 50%;
+}
+
+/* Селектор року */
+.year-selector {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-right: 15px;
+}
+
+.current-year {
+    font-size: 18px;
+    font-weight: bold;
+    min-width: 60px;
+    text-align: center;
+}
+
+/* Список свят */
+.holidays-section {
+    margin: 30px 0;
+}
+
+.holidays-section h3 {
+    margin-bottom: 15px;
+    color: #495057;
+}
+
+.holidays-list {
+    display: grid;
+    gap: 10px;
+}
+
+.holiday-item {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    padding: 15px;
+    background: white;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    transition: box-shadow 0.2s;
+}
+
+.holiday-item:hover {
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.holiday-date {
+    text-align: center;
+    min-width: 60px;
+}
+
+.holiday-date .day {
+    display: block;
+    font-size: 24px;
+    font-weight: bold;
+    line-height: 1;
+}
+
+.holiday-date .month {
+    font-size: 12px;
+    color: #6c757d;
+    text-transform: uppercase;
+}
+
+.holiday-info {
+    flex: 1;
+}
+
+.holiday-info h4 {
+    margin: 0 0 5px 0;
+    font-size: 16px;
+    color: #495057;
+}
+
+.holiday-info p {
+    margin: 0 0 5px 0;
+    font-size: 14px;
+    color: #6c757d;
+}
+
+.holiday-info small {
+    font-size: 12px;
+    color: #6c757d;
+}
+
+.holiday-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+/* Типи свят */
+.holiday-item.national {
+    border-left: 4px solid #dc3545;
+}
+
+.holiday-item.religious {
+    border-left: 4px solid #6f42c1;
+}
+
+.holiday-item.professional {
+    border-left: 4px solid #17a2b8;
+}
+
+.holiday-item.memorial {
+    border-left: 4px solid #6c757d;
+}
+
+.holiday-item.company {
+    border-left: 4px solid #28a745;
+}
+
+/* Пусті стани */
+.empty-holidays {
+    text-align: center;
+    padding: 40px;
+    color: #6c757d;
+}
+
+.empty-holidays i {
+    font-size: 48px;
+    margin-bottom: 15px;
+    opacity: 0.5;
+}
+
+/* Форми */
+.holiday-form {
+    padding: 10px 0;
+}
+
+.day-settings-form {
+    padding: 10px 0;
+}
+
+.current-status {
+    margin-bottom: 20px;
+    padding: 15px;
+    background: #f8f9fa;
+    border-radius: 6px;
+}
+
+.current-status h4 {
+    margin: 0 0 10px 0;
+    font-size: 14px;
+    color: #495057;
+}
+
+.status-badge {
+    display: inline-block;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: bold;
+    text-transform: uppercase;
+}
+
+.status-badge.working {
+    background: #d4edda;
+    color: #155724;
+}
+
+.status-badge.weekend {
+    background: #d1ecf1;
+    color: #0c5460;
+}
+
+.status-badge.holiday {
+    background: #f8d7da;
+    color: #721c24;
+}
+
+/* Адаптивність */
+@media (max-width: 768px) {
+    .calendar-stats {
+        flex-direction: column;
+    }
+    
+    .calendar-legend {
+        flex-direction: column;
+        gap: 10px;
+    }
+    
+    .calendar-year-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .holiday-item {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+    }
+    
+    .holiday-actions {
+        align-self: flex-end;
+    }
+}
+
+@media (max-width: 480px) {
+    .production-calendar-module {
+        padding: 10px;
+    }
+    
+    .month-days {
+        gap: 1px;
+    }
+    
+    .calendar-day {
+        font-size: 10px;
+    }
+}

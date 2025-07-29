@@ -57,13 +57,21 @@ class HRSystem {
      */
     bindEvents() {
         // Навігація
-        document.querySelectorAll('.nav-link').forEach(link => {
+        document.querySelectorAll('.nav-link:not(.external-link)').forEach(link => {
             link.addEventListener('click', (e) => {
                 e.preventDefault();
                 const module = link.dataset.module;
                 if (module) {
                     this.loadModule(module);
                 }
+            });
+        });
+        
+        // Обробка зовнішніх посилань (відкриваються в тій же вкладці)
+        document.querySelectorAll('.nav-link.external-link').forEach(link => {
+            link.addEventListener('click', (e) => {
+                // Дозволяємо стандартну поведінку браузера для зовнішніх посилань
+                // Вони відкриються в тій же вкладці
             });
         });
 
@@ -230,6 +238,14 @@ class HRSystem {
                     moduleInstance = new PositionsModule(this.database, options);
                     positionsModule = moduleInstance; // Глобальна змінна для доступу з HTML
                     break;
+                case 'schedules':
+                    moduleInstance = new SchedulesModule(this.database, options);
+                    schedulesModule = moduleInstance; // Глобальна змінна для доступу з HTML
+                    break;
+                case 'productionCalendar':
+                    moduleInstance = new ProductionCalendarModule(this.database, options);
+                    productionCalendarModule = moduleInstance; // Глобальна змінна для доступу з HTML
+                    break;
                 case 'timesheet':
                     moduleInstance = new TimesheetModule(this.database, options);
                     timesheetModule = moduleInstance; // Глобальна змінна для доступу з HTML
@@ -238,9 +254,18 @@ class HRSystem {
                     moduleInstance = new PayrollModule(this.database, options);
                     payrollModule = moduleInstance; // Глобальна змінна для доступу з HTML
                     break;
+                case 'payslips':
+                    moduleInstance = new PayslipsModule(this.database, options);
+                    payslipsModule = moduleInstance; // Глобальна змінна для доступу з HTML
+                    break;
                 case 'vacations':
                     moduleInstance = new VacationsModule(this.database, options);
                     vacationsModule = moduleInstance; // Глобальна змінна для доступу з HTML
+                    break;
+                case 'businessTrips':
+                    moduleInstance = new BusinessTripsModule(this.database, options);
+                    businessTripsModule = moduleInstance; // Глобальна змінна для доступу з HTML
+                    window.businessTripsModule = moduleInstance; // Додаємо на window для доступу з HTML
                     break;
                 case 'sickLeaves':
                     moduleInstance = new SickLeavesModule(this.database, options);
@@ -313,6 +338,7 @@ class HRSystem {
             positions: 'Посади',
             timesheet: 'Табель',
             schedules: 'Графіки роботи',
+            productionCalendar: 'Виробничий календар',
             payroll: 'Розрахунок з/п',
             payslips: 'Розрахункові листки',
             vacations: 'Відпустки',
@@ -609,8 +635,11 @@ let hrSystem = null;
 let employeesModule = null;
 let departmentsModule = null;
 let positionsModule = null;
+let schedulesModule = null;
+let productionCalendarModule = null;
 let timesheetModule = null;
 let payrollModule = null;
+let payslipsModule = null;
 let vacationsModule = null;
 let reportsModule = null;
 

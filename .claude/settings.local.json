@@ -3,7 +3,13 @@
     "allow": [
       "Bash(mkdir:*)",
       "Bash(del march-2025.xlsm)",
-      "Bash(rm:*)"
+      "Bash(rm:*)",
+      "Bash(del military-registry.html)",
+      "Bash(ren:*)",
+      "Bash(mv:*)",
+      "Bash(python:*)",
+      "Bash(copy script.js timesheet-original.js)",
+      "Bash(cp:*)"
     ],
     "deny": []
   }

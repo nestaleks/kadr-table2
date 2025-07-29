@@ -3394,7 +3394,7 @@ body {
 .calendar-day {
     background: white;
     padding: 8px;
-    min-height: 60px;
+    min-height: 35px;
     position: relative;
     cursor: pointer;
     transition: background-color 0.3s ease;
@@ -4390,4 +4390,141 @@ body {
         width: 100%;
         padding: 10px;
     }
+}
+
+/* Стилі для чекбоксів */
+.checkbox-label {
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+    font-weight: 500;
+    gap: 10px;
+    padding: 10px 0;
+}
+
+.checkbox-label input[type="checkbox"] {
+    display: none;
+}
+
+.checkmark {
+    height: 20px;
+    width: 20px;
+    background-color: #f8f9fa;
+    border: 2px solid #dee2e6;
+    border-radius: 4px;
+    position: relative;
+    transition: all 0.2s ease;
+}
+
+.checkbox-label:hover .checkmark {
+    border-color: var(--secondary-color);
+}
+
+.checkbox-label input:checked ~ .checkmark {
+    background-color: var(--secondary-color);
+    border-color: var(--secondary-color);
+}
+
+.checkmark:after {
+    content: "";
+    position: absolute;
+    display: none;
+}
+
+.checkbox-label input:checked ~ .checkmark:after {
+    display: block;
+}
+
+.checkbox-label .checkmark:after {
+    left: 6px;
+    top: 2px;
+    width: 6px;
+    height: 10px;
+    border: solid white;
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg);
+}
+
+/* Стилі для модуля відряджень */
+.business-trips-module .trips-table-container {
+    background: white;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.trips-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+}
+
+.trips-table th {
+    background: #f8f9fa;
+    padding: 15px 12px;
+    text-align: left;
+    font-weight: 600;
+    color: #495057;
+    border-bottom: 2px solid #dee2e6;
+}
+
+.trips-table td {
+    padding: 12px;
+    border-bottom: 1px solid #dee2e6;
+    vertical-align: middle;
+}
+
+.trips-table tbody tr:hover {
+    background-color: #f8f9fa;
+}
+
+.trip-title {
+    display: flex;
+    flex-direction: column;
+}
+
+.trip-title strong {
+    font-weight: 600;
+    color: #2c3e50;
+    margin-bottom: 2px;
+}
+
+.trip-title small {
+    color: #6c757d;
+    font-size: 12px;
+}
+
+.trip-dates {
+    display: flex;
+    flex-direction: column;
+}
+
+.trip-dates small {
+    color: #6c757d;
+    font-size: 11px;
+}
+
+.status-badge.planned {
+    background: #e3f2fd;
+    color: #1976d2;
+}
+
+.status-badge.approved {
+    background: #e8f5e8;
+    color: #2e7d32;
+}
+
+.status-badge.in-progress {
+    background: #fff3e0;
+    color: #f57c00;
+}
+
+.status-badge.completed {
+    background: #e8f5e8;
+    color: #388e3c;
+}
+
+.status-badge.cancelled {
+    background: #ffebee;
+    color: #d32f2f;
 }

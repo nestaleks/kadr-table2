@@ -22,7 +22,8 @@ class TimesheetModule extends BaseModule {
             'ТН': { name: 'Тимчасова непрацездатність', type: 'sick', hours: 0 },
             'ІН': { name: 'Інша непрацездатність', type: 'sick', hours: 0 },
             'ВБ': { name: 'Відпустка без збереження зарплати', type: 'vacation', hours: 0 },
-            'В': { name: 'Відпустка', type: 'vacation', hours: 0 }
+            'В': { name: 'Відпустка', type: 'vacation', hours: 0 },
+            'ВК': { name: 'Відрядження', type: 'business_trip', hours: 8 }
         };
     }
 
@@ -181,6 +182,8 @@ class TimesheetModule extends BaseModule {
             this.employees = await this.database.getAll('employees');
             this.departments = await this.database.getAll('departments');
             this.positions = await this.database.getAll('positions');
+            this.businessTrips = await this.database.getAll('businessTrips');
+            this.vacations = await this.database.getAll('vacations');
         } catch (error) {
             console.error('Помилка завантаження даних табелю:', error);
             hrSystem.showNotification('Помилка завантаження даних: ' + error.message, 'error');
@@ -322,10 +325,22 @@ class TimesheetModule extends BaseModule {
                         ${filteredEmployees.map(emp => this.renderEmployeeRows(emp)).join('')}
                     </tbody>
                     <tfoot>
-                        <tr class="summary-row">
-                            <td colspan="3"><strong>Підсумок по підрозділу:</strong></td>
-                            ${this.generateSummaryRow()}
-                            <td class="total-cell"><strong>${this.calculateTotalHours()}</strong></td>
+                        <tr class="summary-codes-row">
+                            <td colspan="3" rowspan="2" class="summary-label">
+                                <strong>Підсумок по підрозділу:</strong>
+                                <div class="summary-stats">
+                                    <div>Всього робочих днів: ${this.calculateTotalWorkDays()}</div>
+                                    <div>Всього годин: ${this.calculateTotalHours()}</div>
+                                </div>
+                            </td>
+                            ${this.generateSummaryRow('codes')}
+                            <td class="total-cell" rowspan="2">
+                                <div class="total-days"><strong>${this.calculateTotalWorkDays()} днів</strong></div>
+                                <div class="total-hours"><strong>${this.calculateTotalHours()} год</strong></div>
+                            </td>
+                        </tr>
+                        <tr class="summary-hours-row">
+                            ${this.generateSummaryRow('hours')}
                         </tr>
                     </tfoot>
                 </table>
@@ -340,16 +355,24 @@ class TimesheetModule extends BaseModule {
 
         return `
             <tr class="employee-work-row" data-employee-id="${employee.id}">
-                <td class="employee-name">${employee.fullName}</td>
-                <td class="employee-position">${position?.title || '-'}</td>
-                <td class="employee-personnel">${employee.personnelNumber}</td>
+                <td class="employee-name-cell" rowspan="2">
+                    <div class="employee-name">${employee.fullName}</div>
+                    <div class="employee-department">${this.getEmployeeDepartment(employee)}</div>
+                </td>
+                <td class="employee-position-cell" rowspan="2">
+                    <div class="position-title">${position?.title || '-'}</div>
+                </td>
+                <td class="employee-personnel-cell" rowspan="2">
+                    <div class="personnel-number">${employee.personnelNumber}</div>
+                </td>
                 ${this.generateEmployeeDays(employee.id, 'code')}
-                <td class="total-cell">${this.calculateEmployeeTotal(employee.id)}</td>
+                <td class="total-cell" rowspan="2">
+                    <div class="total-days">${this.calculateEmployeeDays(employee.id)} днів</div>
+                    <div class="total-hours">${this.calculateEmployeeHours(employee.id)} год</div>
+                </td>
             </tr>
             <tr class="employee-hours-row" data-employee-id="${employee.id}">
-                <td colspan="3"></td>
                 ${this.generateEmployeeDays(employee.id, 'hours')}
-                <td class="hours-total">${this.calculateEmployeeHours(employee.id)}</td>
             </tr>
         `;
     }
@@ -391,18 +414,58 @@ class TimesheetModule extends BaseModule {
         return days;
     }
 
-    generateSummaryRow() {
+    generateSummaryRow(type = 'codes') {
         const daysInMonth = this.getDaysInMonth();
         let summary = '';
         
         for (let day = 1; day <= daysInMonth; day++) {
-            const dayTotal = this.calculateDayTotal(day);
             const date = new Date(this.currentYear, this.currentMonth - 1, day);
             const isWeekend = date.getDay() === 0 || date.getDay() === 6;
-            summary += `<td class="summary-cell ${isWeekend ? 'weekend' : ''}">${dayTotal}</td>`;
+            
+            if (type === 'codes') {
+                const dayTotal = this.calculateDayTotal(day);
+                summary += `<td class="summary-cell ${isWeekend ? 'weekend' : ''}">${dayTotal}</td>`;
+            } else {
+                const dayHours = this.calculateDayHours(day);
+                summary += `<td class="summary-hours-cell ${isWeekend ? 'weekend' : ''}">${dayHours}</td>`;
+            }
         }
         
         return summary;
+    }
+
+    getEmployeeDepartment(employee) {
+        const department = this.departments.find(d => d.id === employee.departmentId);
+        return department ? department.name : 'Не вказано';
+    }
+
+    calculateEmployeeDays(employeeId) {
+        const employeeData = this.getEmployeeTimesheetData(employeeId);
+        let workDays = 0;
+        
+        for (let day = 1; day <= this.getDaysInMonth(); day++) {
+            const dayData = employeeData[day];
+            if (dayData && dayData.code && this.workCodes[dayData.code]?.type === 'work') {
+                workDays++;
+            }
+        }
+        
+        return workDays;
+    }
+
+    calculateDayHours(day) {
+        const filteredEmployees = this.getFilteredEmployees();
+        let totalHours = 0;
+        
+        filteredEmployees.forEach(emp => {
+            const employeeData = this.getEmployeeTimesheetData(emp.id);
+            const dayData = employeeData[day];
+            if (dayData && dayData.hours) {
+                totalHours += parseFloat(dayData.hours) || 0;
+            }
+        });
+        
+        return totalHours || '';
     }
 
     generateYearOptions() {
@@ -580,7 +643,7 @@ class TimesheetModule extends BaseModule {
                     const timesheetRecord = {
                         employeeId: employee.id,
                         monthYear: monthKey,
-                        days: this.generateDefaultDays(year, month),
+                        days: this.generateDefaultDays(year, month, employee.id),
                         createdAt: new Date().toISOString(),
                         updatedAt: new Date().toISOString()
                     };
@@ -607,7 +670,7 @@ class TimesheetModule extends BaseModule {
         }
     }
 
-    generateDefaultDays(year, month) {
+    generateDefaultDays(year, month, employeeId = null) {
         const daysInMonth = new Date(year, month, 0).getDate();
         const days = {};
         
@@ -621,7 +684,93 @@ class TimesheetModule extends BaseModule {
             };
         }
         
+        // Автоматично заповнюємо відрядження, відпустки
+        if (employeeId && (this.businessTrips || this.vacations)) {
+            this.applyBusinessTripsToTimesheet(days, year, month, employeeId);
+            this.applyVacationsToTimesheet(days, year, month, employeeId);
+        }
+        
         return days;
+    }
+
+    /**
+     * Застосовує відрядження до табеля
+     */
+    applyBusinessTripsToTimesheet(days, year, month, employeeId) {
+        if (!this.businessTrips) return;
+        
+        const monthTrips = this.businessTrips.filter(trip => {
+            if (trip.employeeId !== employeeId) return false;
+            if (trip.status !== 'approved' && trip.status !== 'in_progress' && trip.status !== 'completed') return false;
+            
+            const startDate = new Date(trip.startDate);
+            const endDate = new Date(trip.endDate);
+            
+            // Перевіряємо чи відрядження перетинається з поточним місяцем
+            const monthStart = new Date(year, month - 1, 1);
+            const monthEnd = new Date(year, month, 0);
+            
+            return startDate <= monthEnd && endDate >= monthStart;
+        });
+        
+        monthTrips.forEach(trip => {
+            const startDate = new Date(trip.startDate);
+            const endDate = new Date(trip.endDate);
+            
+            // Визначаємо діапазон днів у поточному місяці
+            const firstDay = Math.max(1, startDate.getMonth() === month - 1 && startDate.getFullYear() === year ? startDate.getDate() : 1);
+            const lastDay = Math.min(new Date(year, month, 0).getDate(), 
+                endDate.getMonth() === month - 1 && endDate.getFullYear() === year ? endDate.getDate() : new Date(year, month, 0).getDate());
+            
+            // Позначаємо дні відрядження
+            for (let day = firstDay; day <= lastDay; day++) {
+                days[day] = {
+                    code: 'ВК',
+                    hours: 8
+                };
+            }
+        });
+    }
+
+    /**
+     * Застосовує відпустки до табеля
+     */
+    applyVacationsToTimesheet(days, year, month, employeeId) {
+        if (!this.vacations) return;
+        
+        const monthVacations = this.vacations.filter(vacation => {
+            if (vacation.employeeId !== employeeId) return false;
+            if (vacation.status !== 'approved' && vacation.status !== 'active') return false;
+            
+            const startDate = new Date(vacation.startDate);
+            const endDate = new Date(vacation.endDate);
+            
+            // Перевіряємо чи відпустка перетинається з поточним місяцем
+            const monthStart = new Date(year, month - 1, 1);
+            const monthEnd = new Date(year, month, 0);
+            
+            return startDate <= monthEnd && endDate >= monthStart;
+        });
+        
+        monthVacations.forEach(vacation => {
+            const startDate = new Date(vacation.startDate);
+            const endDate = new Date(vacation.endDate);
+            
+            // Визначаємо діапазон днів у поточному місяці
+            const firstDay = Math.max(1, startDate.getMonth() === month - 1 && startDate.getFullYear() === year ? startDate.getDate() : 1);
+            const lastDay = Math.min(new Date(year, month, 0).getDate(), 
+                endDate.getMonth() === month - 1 && endDate.getFullYear() === year ? endDate.getDate() : new Date(year, month, 0).getDate());
+            
+            // Позначаємо дні відпустки (якщо не зайняті відрядженням)
+            for (let day = firstDay; day <= lastDay; day++) {
+                if (days[day].code !== 'ВК') { // Не перезаписуємо відрядження
+                    days[day] = {
+                        code: vacation.type === 'unpaid' ? 'ВБ' : 'В',
+                        hours: 0
+                    };
+                }
+            }
+        });
     }
 
     updateTimesheetView() {
@@ -645,25 +794,103 @@ class TimesheetModule extends BaseModule {
     }
 
     async editDay(employeeId, day) {
-        // Тут можна додати модальне вікно для редагування дня
-        // Поки що просто логуємо
-        console.log(`Edit day ${day} for employee ${employeeId}`);
-        
-        // Простий prompt для демонстрації
         const employee = this.employees.find(e => e.id === employeeId);
         const currentData = this.getEmployeeTimesheetData(employeeId)[day] || { code: '', hours: 0 };
         
-        const newCode = prompt(
-            `Редагування дня ${day} для ${employee.fullName}\nПоточний код: ${currentData.code}\nВведіть новий код:`,
-            currentData.code
-        );
+        // Створюємо модальне вікно для редагування
+        const modalHTML = `
+            <div class="modal" id="editDayModal">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h2><i class="fas fa-edit"></i> Редагування дня ${day}</h2>
+                        <button class="modal-close">&times;</button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="edit-day-form">
+                            <div class="employee-info">
+                                <strong>${employee.fullName}</strong> - ${day} ${this.getMonthName(this.currentMonth - 1)} ${this.currentYear}
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>Код роботи:</label>
+                                <select id="dayCode" class="form-control">
+                                    <option value="">Не вказано</option>
+                                    ${Object.entries(this.workCodes).map(([code, info]) => 
+                                        `<option value="${code}" ${currentData.code === code ? 'selected' : ''}>${code} - ${info.name}</option>`
+                                    ).join('')}
+                                </select>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>Кількість годин:</label>
+                                <input type="number" id="dayHours" class="form-control" 
+                                       value="${currentData.hours || ''}" 
+                                       min="0" max="24" step="0.5" 
+                                       placeholder="Автоматично за кодом">
+                                <small class="form-text">Залиште порожнім для автоматичного розрахунку за кодом</small>
+                            </div>
+                            
+                            <div class="current-values">
+                                <h4>Поточні значення:</h4>
+                                <div>Код: <span id="currentCode">${currentData.code || 'Не вказано'}</span></div>
+                                <div>Години: <span id="currentHours">${currentData.hours || 0}</span></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button class="btn btn-primary" id="saveDayBtn">Зберегти</button>
+                        <button class="btn btn-danger" id="clearDayBtn">Очистити</button>
+                        <button class="btn btn-secondary" id="cancelDayBtn">Скасувати</button>
+                    </div>
+                </div>
+            </div>
+        `;
         
-        if (newCode !== null) {
-            await this.updateDayData(employeeId, day, newCode);
-        }
+        // Додаємо модальне вікно
+        document.body.insertAdjacentHTML('beforeend', modalHTML);
+        const modal = document.getElementById('editDayModal');
+        modal.classList.add('show');
+        
+        // Обробники подій
+        document.getElementById('dayCode').addEventListener('change', (e) => {
+            const selectedCode = e.target.value;
+            const codeInfo = this.workCodes[selectedCode];
+            const hoursInput = document.getElementById('dayHours');
+            
+            if (codeInfo && hoursInput.value === '') {
+                hoursInput.placeholder = `Автоматично: ${codeInfo.hours} годин`;
+            }
+        });
+        
+        document.getElementById('saveDayBtn').addEventListener('click', async () => {
+            const code = document.getElementById('dayCode').value;
+            const hours = parseFloat(document.getElementById('dayHours').value) || 
+                         (code && this.workCodes[code] ? this.workCodes[code].hours : 0);
+            
+            await this.updateDayData(employeeId, day, code, hours);
+            this.closeModal(modal);
+        });
+        
+        document.getElementById('clearDayBtn').addEventListener('click', async () => {
+            await this.updateDayData(employeeId, day, '', 0);
+            this.closeModal(modal);
+        });
+        
+        document.getElementById('cancelDayBtn').addEventListener('click', () => {
+            this.closeModal(modal);
+        });
+        
+        document.querySelector('#editDayModal .modal-close').addEventListener('click', () => {
+            this.closeModal(modal);
+        });
     }
 
-    async updateDayData(employeeId, day, code) {
+    closeModal(modal) {
+        modal.classList.remove('show');
+        setTimeout(() => modal.remove(), 300);
+    }
+
+    async updateDayData(employeeId, day, code, hours = null) {
         try {
             const monthKey = `${this.currentYear}-${String(this.currentMonth).padStart(2, '0')}`;
             
@@ -677,7 +904,7 @@ class TimesheetModule extends BaseModule {
                 record = {
                     employeeId: employeeId,
                     monthYear: monthKey,
-                    days: this.generateDefaultDays(this.currentYear, this.currentMonth),
+                    days: this.generateDefaultDays(this.currentYear, this.currentMonth, employeeId),
                     createdAt: new Date().toISOString(),
                     updatedAt: new Date().toISOString()
                 };
@@ -691,7 +918,7 @@ class TimesheetModule extends BaseModule {
             // Оновлюємо день
             record.days[day] = {
                 code: code,
-                hours: this.workCodes[code]?.hours || 0
+                hours: hours !== null ? hours : (this.workCodes[code]?.hours || 0)
             };
             record.updatedAt = new Date().toISOString();
             
@@ -766,12 +993,13 @@ class TimesheetModule extends BaseModule {
         }
     }
 
-    getMonthName() {
+    getMonthName(monthIndex = null) {
         const months = [
             'Січень', 'Лютий', 'Березень', 'Квітень', 'Травень', 'Червень',
             'Липень', 'Серпень', 'Вересень', 'Жовтень', 'Листопад', 'Грудень'
         ];
-        return months[this.currentMonth - 1];
+        const index = monthIndex !== null ? monthIndex : this.currentMonth - 1;
+        return months[index];
     }
 }
 

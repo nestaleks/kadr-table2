@@ -18,10 +18,6 @@
                     <input type="text" id="organizationName" value="ТОВ «Назва підприємства»" class="org-input">
                 </div>
                 <div class="org-field">
-                    <label>Структурний підрозділ:</label>
-                    <input type="text" id="departmentName" value="Основний відділ" class="org-input">
-                </div>
-                <div class="org-field">
                     <label>Код ЄДРПОУ:</label>
                     <input type="text" id="edrpouCode" value="12345678" class="org-input">
                 </div>
@@ -60,7 +56,7 @@
                     <i class="fas fa-calendar-alt"></i> Згенерувати табель
                 </button>
                 <button class="btn btn-success" id="addEmployeeBtn">
-                    <i class="fas fa-user-plus"></i> Додати співробітника
+                    <i class="fas fa-user-plus"></i> Знайти співробітника
                 </button>
                 <button class="btn btn-info" id="fillWorkingDays">
                     <i class="fas fa-magic"></i> Заповнити робочі дні
@@ -79,8 +75,25 @@
             </div>
         </div>
 
+        <!-- Вкладки підрозділів -->
+        <div class="departments-tabs" id="departmentsTabs">
+            <div class="tabs-header">
+                <button class="tab-btn active" data-department="all">
+                    <i class="fas fa-users"></i> Всі співробітники
+                </button>
+            </div>
+        </div>
+
         <!-- Основна таблиця табеля -->
         <div class="timesheet-wrapper">
+            <div class="current-department-info">
+                <h3 id="currentDepartmentName">Всі співробітники</h3>
+                <div class="department-stats">
+                    <span>Співробітників: <span id="departmentEmployeeCount">0</span></span>
+                    <span>Робочих днів: <span id="departmentWorkDays">0</span></span>
+                </div>
+            </div>
+            
             <table class="timesheet-table" id="timesheetTable">
                 <!-- Заголовок таблиці буде згенеровано динамічно -->
             </table>
@@ -189,57 +202,131 @@
         </div>
     </div>
 
-    <!-- Модальне вікно додавання співробітника -->
-    <div class="modal" id="employeeModal">
-        <div class="modal-content">
+    <!-- Модальне вікно пошуку співробітника -->
+    <div class="modal" id="employeeSearchModal">
+        <div class="modal-content large">
             <div class="modal-header">
-                <h3><i class="fas fa-user-plus"></i> Додати співробітника</h3>
-                <button class="modal-close" id="closeModal">&times;</button>
+                <h3><i class="fas fa-search"></i> Пошук співробітника</h3>
+                <button class="modal-close" id="closeSearchModal">&times;</button>
             </div>
             <div class="modal-body">
-                <form id="employeeForm">
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label for="empTabNumber">Табельний номер:</label>
-                            <input type="text" id="empTabNumber" required>
+                <div class="search-section">
+                    <div class="search-controls">
+                        <div class="search-input-group">
+                            <input type="text" id="employeeSearchInput" placeholder="Введіть ПІБ, табельний номер або посаду..." class="search-input">
+                            <button class="btn btn-primary" id="searchEmployeeBtn">
+                                <i class="fas fa-search"></i> Знайти
+                            </button>
                         </div>
-                        <div class="form-group">
-                            <label for="empFullName">Прізвище Ім'я По батькові:</label>
-                            <input type="text" id="empFullName" required>
+                        
+                        <div class="search-filters">
+                            <div class="filter-group">
+                                <label>Підрозділ:</label>
+                                <select id="searchDepartmentFilter" class="form-control">
+                                    <option value="">Всі підрозділи</option>
+                                </select>
+                            </div>
+                            <div class="filter-group">
+                                <label>Статус:</label>
+                                <select id="searchStatusFilter" class="form-control">
+                                    <option value="all">Всі співробітники</option>
+                                    <option value="active">Активні</option>
+                                    <option value="inactive">Неактивні/Звільнені</option>
+                                    <option value="worked">Працювали в періоді</option>
+                                </select>
+                            </div>
                         </div>
                     </div>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label for="empPosition">Посада:</label>
-                            <input type="text" id="empPosition" required>
-                        </div>
-                        <div class="form-group">
-                            <label for="empDepartment">Підрозділ:</label>
-                            <input type="text" id="empDepartment">
+                    
+                    <div class="search-results" id="searchResults">
+                        <div class="no-results">
+                            <i class="fas fa-search"></i>
+                            <p>Введіть дані для пошуку співробітника</p>
                         </div>
                     </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-success" id="addSelectedEmployees" disabled>
+                    <i class="fas fa-user-plus"></i> Додати вибраних (<span id="selectedCount">0</span>)
+                </button>
+                <button class="btn btn-secondary" id="cancelSearch">
+                    <i class="fas fa-times"></i> Закрити
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Модальне вікно створення табеля -->
+    <div class="modal" id="generateTimesheetModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><i class="fas fa-calendar-plus"></i> Створити табель</h3>
+                <button class="modal-close" id="closeGenerateModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="generateTimesheetForm">
                     <div class="form-row">
                         <div class="form-group">
-                            <label for="empSchedule">Графік роботи:</label>
-                            <select id="empSchedule">
-                                <option value="full">Повний день (8 годин)</option>
-                                <option value="part">Неповний день</option>
-                                <option value="shift">Змінний графік</option>
-                                <option value="flexible">Гнучкий графік</option>
+                            <label for="generateMonth">Місяць:</label>
+                            <select id="generateMonth" required>
+                                <option value="0">Січень</option>
+                                <option value="1">Лютий</option>
+                                <option value="2">Березень</option>
+                                <option value="3">Квітень</option>
+                                <option value="4">Травень</option>
+                                <option value="5">Червень</option>
+                                <option value="6">Липень</option>
+                                <option value="7">Серпень</option>
+                                <option value="8">Вересень</option>
+                                <option value="9">Жовтень</option>
+                                <option value="10">Листопад</option>
+                                <option value="11">Грудень</option>
                             </select>
                         </div>
                         <div class="form-group">
-                            <label for="empWorkingHours">Норма годин/день:</label>
-                            <input type="number" id="empWorkingHours" value="8" min="1" max="12" step="0.5">
+                            <label for="generateYear">Рік:</label>
+                            <input type="number" id="generateYear" value="2025" min="2020" max="2030" required>
+                        </div>
+                    </div>
+                    
+                    <div class="auto-fill-options">
+                        <h4>Автоматичне заповнення:</h4>
+                        <div class="checkbox-group">
+                            <label>
+                                <input type="checkbox" id="includeActiveEmployees" checked>
+                                Включити всіх активних співробітників
+                            </label>
+                            <label>
+                                <input type="checkbox" id="includeWorkedInPeriod" checked>
+                                Включити співробітників, що працювали в періоді (включно зі звільненими)
+                            </label>
+                            <label>
+                                <input type="checkbox" id="includeInactiveEmployees">
+                                Включити всіх звільнених співробітників
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <div class="department-selection">
+                        <h4>Підрозділи:</h4>
+                        <div id="departmentCheckboxes">
+                            <!-- Заповнюється динамічно -->
+                        </div>
+                    </div>
+                    
+                    <div class="generation-summary">
+                        <div class="summary-item">
+                            <span>Буде додано співробітників: <strong id="estimatedCount">0</strong></span>
                         </div>
                     </div>
                 </form>
             </div>
             <div class="modal-footer">
-                <button class="btn btn-primary" id="saveEmployee">
-                    <i class="fas fa-save"></i> Зберегти
+                <button class="btn btn-primary" id="confirmGenerate">
+                    <i class="fas fa-calendar-alt"></i> Створити табель
                 </button>
-                <button class="btn btn-secondary" id="cancelEmployee">
+                <button class="btn btn-secondary" id="cancelGenerate">
                     <i class="fas fa-times"></i> Скасувати
                 </button>
             </div>
@@ -247,6 +334,7 @@
     </div>
 
     <!-- Завантаження скриптів -->
+    <script src="database.js"></script>
     <script src="timesheet-1c-format.js"></script>
 </body>
 </html>

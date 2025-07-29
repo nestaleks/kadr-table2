@@ -67,6 +67,23 @@ const EmployeeSchema = {
         remainingDays: 24 // залишок днів
     },
     
+    // Військові дані
+    military: {
+        isLiable: false, // чи є військовозобов'язаним (чекбокс)
+        status: '', // liable/not_liable/limited/unfit
+        rank: '', // військове звання
+        specialty: '', // ВОС
+        idNumber: '', // номер військового квитка
+        idDate: null, // дата видачі
+        idIssuedBy: '', // ким виданий
+        branch: '', // рід військ
+        registrationDate: null, // дата приписки
+        commissariat: '', // військкомат
+        bloodType: '', // група крові  
+        healthCategory: '', // A/B/C/D/E
+        notes: '' // примітки
+    },
+    
     // Метадані
     photo: null, // base64 або URL
     notes: '', // примітки
@@ -249,6 +266,154 @@ const VacationSchema = {
 /**
  * Схема лікарняного
  */
+/**
+ * Схема графіка роботи
+ */
+const ScheduleSchema = {
+    id: null, // auto-increment
+    name: '', // назва графіка
+    description: '', // опис
+    type: 'fixed', // тип: fixed, shift, flexible, remote
+    status: 'active', // статус: active, inactive, draft
+    
+    // Робочі дні та час
+    workingDays: [], // масив днів тижня: ['monday', 'tuesday', ...]
+    startTime: '09:00', // початок роботи
+    endTime: '18:00', // кінець роботи
+    hoursPerDay: 8, // годин на день
+    hoursPerWeek: 40, // годин на тиждень
+    
+    // Гнучкість
+    flexibilityMinutes: 0, // гнучкість початку в хвилинах
+    timezone: 'Europe/Kiev', // часовий пояс
+    
+    // Перерви
+    lunchBreakMinutes: 60, // тривалість обіду
+    lunchBreakStart: '12:00', // початок обіду
+    shortBreaksCount: 2, // кількість коротких перерв
+    shortBreakMinutes: 15, // тривалість короткої перерви
+    autoBreaks: false, // автоматично враховувати перерви
+    
+    // Зміни (для змінного графіка)
+    shifts: [], // масив об'єктів: [{name, startTime, endTime}]
+    
+    // Метадані
+    createdAt: null, // дата створення
+    updatedAt: null, // дата оновлення
+    createdBy: null // хто створив
+};
+
+/**
+ * Схема шаблону графіка роботи
+ */
+const ScheduleTemplateSchema = {
+    id: null, // auto-increment
+    name: '', // назва шаблону
+    description: '', // опис шаблону
+    type: 'fixed', // тип графіка
+    
+    // Налаштування (як у ScheduleSchema)
+    workingDays: [],
+    startTime: '09:00',
+    endTime: '18:00',
+    hoursPerDay: 8,
+    hoursPerWeek: 40,
+    flexibilityMinutes: 0,
+    timezone: 'Europe/Kiev',
+    lunchBreakMinutes: 60,
+    lunchBreakStart: '12:00',
+    shortBreaksCount: 2,
+    shortBreakMinutes: 15,
+    autoBreaks: false,
+    shifts: [],
+    
+    // Метадані
+    createdAt: null,
+    updatedAt: null,
+    isDefault: false // чи є стандартним шаблоном
+};
+
+/**
+ * Схема виробничого календаря
+ */
+const ProductionCalendarSchema = {
+    id: null, // auto-increment
+    year: null, // рік календаря
+    month: null, // місяць (0-11)
+    day: null, // день місяця
+    date: null, // повна дата в форматі ISO
+    
+    // Тип дня
+    type: 'working', // working, weekend, holiday, shortened
+    
+    // Кількість робочих годин
+    workingHours: 8, // стандартно 8 годин
+    
+    // Додаткова інформація
+    isHoliday: false, // чи є святковим днем
+    holidayId: null, // ID пов'язаного свята
+    
+    // Налаштування
+    isTransferred: false, // чи перенесений з іншого дня
+    originalDate: null, // оригінальна дата (для перенесених)
+    
+    // Метадані
+    createdAt: null,
+    updatedAt: null
+};
+
+/**
+ * Схема свята
+ */
+const HolidaySchema = {
+    id: null, // auto-increment
+    name: '', // назва свята
+    date: null, // дата свята (ISO формат)
+    type: 'national', // national, religious, professional, memorial, company
+    
+    // Налаштування
+    isRecurring: false, // чи щорічне свято
+    isWorkingDay: false, // чи робочий день (якщо випадає на вихідний)
+    shortenPreviousDay: 'none', // none, 1hour, 2hours
+    
+    // Інформація
+    description: '', // опис свята
+    
+    // Локалізація (для міжнародних компаній)
+    country: 'UA', // код країни
+    region: null, // регіон (якщо регіональне свято)
+    
+    // Метадані
+    createdAt: null,
+    updatedAt: null,
+    createdBy: null // хто створив
+};
+
+/**
+ * Схема налаштувань робочого дня
+ */
+const WorkingDayAdjustmentSchema = {
+    id: null, // auto-increment
+    date: null, // дата (ISO формат)
+    
+    // Налаштування
+    type: 'working', // working, weekend, holiday, shortened
+    workingHours: null, // кількість годин (null = автоматично)
+    
+    // Причина зміни
+    reason: 'manual', // manual, holiday_transfer, government_decree
+    description: '', // опис причини
+    
+    // Пов'язані дані
+    relatedHolidayId: null, // якщо пов'язано зі святом
+    governmentDecreeNumber: null, // номер постанови уряду
+    
+    // Метадані
+    createdAt: null,
+    updatedAt: null,
+    createdBy: null
+};
+
 const SickLeaveSchema = {
     id: null, // auto-increment
     employeeId: null, // ID співробітника
@@ -281,6 +446,66 @@ const SickLeaveSchema = {
     notes: '',
     createdAt: null,
     updatedAt: null
+};
+
+/**
+ * Схема відрядження
+ */
+const BusinessTripSchema = {
+    id: null, // auto-increment
+    employeeId: null, // ID співробітника
+    
+    // Основна інформація
+    title: '', // назва відрядження
+    purpose: '', // мета відрядження
+    destination: '', // місце призначення
+    
+    // Дати
+    startDate: null, // дата початку
+    endDate: null, // дата закінчення
+    duration: 0, // кількість днів (автоматично)
+    
+    // Фінанси
+    budget: 0, // загальний бюджет
+    advancePayment: 0, // аванс
+    totalExpenses: 0, // загальні витрати
+    expensesList: [], // список витрат [{category, amount, description, date}]
+    
+    // Документи
+    orderNumber: '', // номер наказу
+    orderDate: null, // дата наказу
+    reportSubmitted: false, // чи подано звіт
+    reportDate: null, // дата подання звіту
+    
+    // Статус
+    status: 'planned', // planned/approved/in_progress/completed/cancelled
+    approvedBy: null, // ID того хто затвердив
+    approvedDate: null, // дата затвердження
+    
+    // Транспорт
+    transport: {
+        type: '', // airplane/train/bus/car/other
+        tickets: [], // квитки [{type, cost, from, to, date}]
+        totalTransportCost: 0
+    },
+    
+    // Проживання
+    accommodation: {
+        hotel: '', // назва готелю
+        checkIn: null,
+        checkOut: null,
+        costPerNight: 0,
+        totalNights: 0,
+        totalCost: 0
+    },
+    
+    // Примітки
+    notes: '',
+    
+    // Метадані
+    createdAt: null,
+    updatedAt: null,
+    createdBy: null
 };
 
 /**
@@ -365,6 +590,7 @@ if (typeof module !== 'undefined' && module.exports) {
         PayrollSchema,
         VacationSchema,
         SickLeaveSchema,
+        BusinessTripSchema,
         SettingsSchema,
         SchemaHelpers
     };

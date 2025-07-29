@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Військовий облік</title>
+    <link rel="stylesheet" href="hr-system.css">
+    <link rel="stylesheet" href="military-registry.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+</head>
+<body>
+    <!-- Заголовок системи -->
+    <header class="app-header">
+        <div class="header-content">
+            <div class="logo">
+                <i class="fas fa-shield-alt"></i>
+                <h1>Військовий облік</h1>
+            </div>
+            <div class="header-actions">
+                <div class="user-info">
+                    <i class="fas fa-user-circle"></i>
+                    <span id="currentUser">Адміністратор</span>
+                </div>
+                <div class="header-buttons">
+                    <button id="backToHRBtn" class="btn btn-secondary" title="Повернутися до HR системи">
+                        <i class="fas fa-arrow-left"></i> Назад до HR
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <div class="app-container">
+        <!-- Головний контент -->
+        <main class="main-content">
+            <!-- Хлібні крихти -->
+            <div class="breadcrumb">
+                <span id="breadcrumbPath">
+                    <i class="fas fa-home"></i> HR система / Військовий облік
+                </span>
+            </div>
+
+            <!-- Статистика -->
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-icon liable">
+                        <i class="fas fa-shield-alt"></i>
+                    </div>
+                    <div class="stat-content">
+                        <div class="stat-number" id="liableCount">0</div>
+                        <div class="stat-label">Військовозобов'язаних</div>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon limited">
+                        <i class="fas fa-exclamation-triangle"></i>
+                    </div>
+                    <div class="stat-content">
+                        <div class="stat-number" id="limitedCount">0</div>
+                        <div class="stat-label">Обмежено придатних</div>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon unfit">
+                        <i class="fas fa-times-circle"></i>
+                    </div>
+                    <div class="stat-content">
+                        <div class="stat-number" id="unfitCount">0</div>
+                        <div class="stat-label">Непридатних</div>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon not-liable">
+                        <i class="fas fa-user"></i>
+                    </div>
+                    <div class="stat-content">
+                        <div class="stat-number" id="notLiableCount">0</div>
+                        <div class="stat-label">Не військовозобов'язаних</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Панель управління -->
+            <div class="controls-panel">
+                <div class="search-section">
+                    <div class="search-box">
+                        <input type="text" id="searchInput" placeholder="Пошук за ПІБ, званням, ВОС...">
+                        <i class="fas fa-search search-icon"></i>
+                    </div>
+                    <div class="filters">
+                        <select id="statusFilter" class="filter-select">
+                            <option value="all">Всі статуси</option>
+                            <option value="liable">Військовозобов'язані</option>
+                            <option value="not_liable">Не військовозобов'язані</option>
+                            <option value="limited">Обмежено придатні</option>
+                            <option value="unfit">Непридатні</option>
+                        </select>
+                        <select id="departmentFilter" class="filter-select">
+                            <option value="all">Всі підрозділи</option>
+                        </select>
+                        <select id="branchFilter" class="filter-select">
+                            <option value="all">Всі роди військ</option>
+                            <option value="ground_forces">Сухопутні війська</option>
+                            <option value="navy">ВМС України</option>
+                            <option value="air_force">Повітряні Сили</option>
+                            <option value="special_operations">ССО</option>
+                            <option value="territorial_defense">ТрО</option>
+                            <option value="other">Інше</option>
+                        </select>
+                        <select id="healthFilter" class="filter-select">
+                            <option value="all">Всі категорії здоров'я</option>
+                            <option value="A">А - придатний</option>
+                            <option value="B">Б - з обмеженнями</option>
+                            <option value="C">В - обмежено придатний</option>
+                            <option value="D">Г - тимчасово непридатний</option>
+                            <option value="E">Д - непридатний</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="action-controls">
+                    <button id="addRegistrationBtn" class="btn btn-primary">
+                        <i class="fas fa-user-plus"></i> Додати до обліку
+                    </button>
+                    <button id="exportRegistryBtn" class="btn btn-secondary">
+                        <i class="fas fa-file-excel"></i> Експорт
+                    </button>
+                    <button id="printRegistryBtn" class="btn btn-secondary">
+                        <i class="fas fa-print"></i> Друк
+                    </button>
+                    <div class="view-controls">
+                        <button class="view-btn active" data-view="table">
+                            <i class="fas fa-table"></i>
+                        </button>
+                        <button class="view-btn" data-view="cards">
+                            <i class="fas fa-th-large"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Відображення таблиці -->
+            <div id="tableView" class="table-view">
+                <div class="table-container">
+                    <table class="registry-table">
+                        <thead>
+                            <tr>
+                                <th>ПІБ</th>
+                                <th>Посада</th>
+                                <th>Підрозділ</th>
+                                <th>Статус</th>
+                                <th>Звання</th>
+                                <th>ВОС</th>
+                                <th>№ військового квитка</th>
+                                <th>Рід військ</th>
+                                <th>Військкомат</th>
+                                <th>Здоров'я</th>
+                                <th>Дії</th>
+                            </tr>
+                        </thead>
+                        <tbody id="registryTableBody">
+                            <!-- Дані будуть завантажені тут -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Відображення карток -->
+            <div id="cardsView" class="cards-view" style="display: none;">
+                <div id="cardsGrid" class="cards-grid">
+                    <!-- Картки будуть завантажені тут -->
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Модальне вікно додавання/редагування -->
+    <div id="militaryModal" class="modal large">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modalTitle"><i class="fas fa-shield-alt"></i> Додати до військового обліку</h2>
+                <button class="modal-close" id="closeModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="militaryForm">
+                    <input type="hidden" id="employeeId" name="employeeId">
+                    
+                    <!-- Вибір співробітника -->
+                    <div class="form-section">
+                        <h3><i class="fas fa-user"></i> Співробітник</h3>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="employeeSelect">Виберіть співробітника</label>
+                                <select id="employeeSelect" name="employeeSelect" required>
+                                    <option value="">Виберіть співробітника</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Військові дані -->
+                    <div class="form-section">
+                        <h3><i class="fas fa-shield-alt"></i> Військові дані</h3>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="militaryStatus">Статус військовозобов'язаності</label>
+                                <select id="militaryStatus" name="militaryStatus">
+                                    <option value="">Не вказано</option>
+                                    <option value="liable">Військовозобов'язаний</option>
+                                    <option value="not_liable">Не військовозобов'язаний</option>
+                                    <option value="limited">Обмежено придатний</option>
+                                    <option value="unfit">Непридатний до військової служби</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="militaryRank">Військове звання</label>
+                                <input type="text" id="militaryRank" name="militaryRank" placeholder="Наприклад: старший солдат">
+                            </div>
+                            <div class="form-group">
+                                <label for="militarySpecialty">ВОС (Військово-облікова спеціальність)</label>
+                                <input type="text" id="militarySpecialty" name="militarySpecialty" placeholder="Наприклад: стрілець">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Документи -->
+                    <div class="form-section">
+                        <h3><i class="fas fa-id-card"></i> Документи</h3>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="militaryIdNumber">Номер військового квитка</label>
+                                <input type="text" id="militaryIdNumber" name="militaryIdNumber" placeholder="Серія та номер">
+                            </div>
+                            <div class="form-group">
+                                <label for="militaryIdDate">Дата видачі</label>
+                                <input type="date" id="militaryIdDate" name="militaryIdDate">
+                            </div>
+                            <div class="form-group">
+                                <label for="militaryIdIssuedBy">Ким виданий</label>
+                                <input type="text" id="militaryIdIssuedBy" name="militaryIdIssuedBy" placeholder="Військовий комісаріат">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Служба та облік -->
+                    <div class="form-section">
+                        <h3><i class="fas fa-flag"></i> Служба та облік</h3>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="militaryBranch">Рід військ</label>
+                                <select id="militaryBranch" name="militaryBranch">
+                                    <option value="">Не вказано</option>
+                                    <option value="ground_forces">Сухопутні війська</option>
+                                    <option value="navy">ВМС України</option>
+                                    <option value="air_force">Повітряні Сили</option>
+                                    <option value="special_operations">ССО</option>
+                                    <option value="territorial_defense">ТрО</option>
+                                    <option value="other">Інше</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="militaryRegistrationDate">Дата приписки</label>
+                                <input type="date" id="militaryRegistrationDate" name="militaryRegistrationDate">
+                            </div>
+                            <div class="form-group">
+                                <label for="militaryCommissariat">Військовий комісаріат</label>
+                                <input type="text" id="militaryCommissariat" name="militaryCommissariat" placeholder="Назва військкомату">
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="bloodType">Група крові</label>
+                                <select id="bloodType" name="bloodType">
+                                    <option value="">Не вказано</option>
+                                    <option value="I+">I (Rh+)</option>
+                                    <option value="I-">I (Rh-)</option>
+                                    <option value="II+">II (Rh+)</option>
+                                    <option value="II-">II (Rh-)</option>
+                                    <option value="III+">III (Rh+)</option>
+                                    <option value="III-">III (Rh-)</option>
+                                    <option value="IV+">IV (Rh+)</option>
+                                    <option value="IV-">IV (Rh-)</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="healthCategory">Категорія здоров'я</label>
+                                <select id="healthCategory" name="healthCategory">
+                                    <option value="">Не вказано</option>
+                                    <option value="A">А - придатний до військової служби</option>
+                                    <option value="B">Б - придатний до військової служби з незначними обмеженнями</option>
+                                    <option value="C">В - обмежено придатний до військової служби</option>
+                                    <option value="D">Г - тимчасово непридатний до військової служби</option>
+                                    <option value="E">Д - непридатний до військової служби</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Примітки -->
+                    <div class="form-section">
+                        <h3><i class="fas fa-sticky-note"></i> Додаткова інформація</h3>
+                        <div class="form-group full-width">
+                            <label for="militaryNotes">Примітки</label>
+                            <textarea id="militaryNotes" name="militaryNotes" rows="3" placeholder="Додаткова інформація про військову службу, звільнення, мобілізацію тощо"></textarea>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-primary" id="saveMilitaryBtn">Зберегти</button>
+                <button class="btn btn-secondary" id="cancelBtn">Скасувати</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Модальне вікно перегляду -->
+    <div id="viewModal" class="modal large">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="viewModalTitle"><i class="fas fa-eye"></i> Перегляд військових даних</h2>
+                <button class="modal-close" id="closeViewModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="viewModalContent">
+                    <!-- Контент буде завантажено динамічно -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-primary" id="editFromViewBtn">Редагувати</button>
+                <button class="btn btn-secondary" id="closeViewBtn">Закрити</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Повідомлення -->
+    <div id="notifications" class="notifications-container">
+        <!-- Сюди будуть додаватися повідомлення -->
+    </div>
+
+    <!-- Завантаження скриптів -->
+    <script src="database.js"></script>
+    <script src="data-schemas.js"></script>
+    <script src="military-registry.js"></script>
+</body>
+</html>

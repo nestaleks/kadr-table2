@@ -1,50 +1,31 @@
-class OriginalTimesheet {
+class TimesheetGenerator {
     constructor() {
-        this.currentMonth = 2; // березень (індекс 2)
-        this.currentYear = 2025;
+        this.currentMonth = new Date().getMonth();
+        this.currentYear = new Date().getFullYear();
+        this.workingDays = [];
+        this.weekends = [];
+        this.holidays = [];
         this.employees = [];
         this.employeeCounter = 1;
         
-        this.initializeElements();
-        this.bindEvents();
-        this.generateTimesheet();
+        this.initializeEvents();
+        this.generateTable();
     }
 
-    initializeElements() {
-        this.monthSelect = document.getElementById('month');
-        this.yearInput = document.getElementById('year');
-        this.tableContainer = document.getElementById('tableContainer');
-        this.employeeForm = document.getElementById('employeeForm');
+    initializeEvents() {
+        document.getElementById('month').value = this.currentMonth;
+        document.getElementById('year').value = this.currentYear;
         
-        // Встановлюємо поточні значення
-        this.monthSelect.value = this.currentMonth;
-        this.yearInput.value = this.currentYear;
-        
-        // Приховуємо форму спочатку
-        this.employeeForm.style.display = 'none';
-    }
-
-    bindEvents() {
         document.getElementById('generateTable').addEventListener('click', () => {
-            this.currentMonth = parseInt(this.monthSelect.value);
-            this.currentYear = parseInt(this.yearInput.value);
-            this.generateTimesheet();
+            this.generateTable();
         });
-
-        document.getElementById('addEmployee').addEventListener('click', () => {
-            this.showEmployeeForm();
-        });
-
-        document.getElementById('submitEmployee').addEventListener('click', () => {
-            this.addEmployee();
-        });
-
-        document.getElementById('cancelEmployee').addEventListener('click', () => {
-            this.hideEmployeeForm();
-        });
-
+        
         document.getElementById('exportExcel').addEventListener('click', () => {
             this.exportToExcel();
+        });
+        
+        document.getElementById('addEmployee').addEventListener('click', () => {
+            this.addEmployee();
         });
     }
 
@@ -54,385 +35,349 @@ class OriginalTimesheet {
 
     isWeekend(date) {
         const day = date.getDay();
-        return day === 0 || day === 6; // неділя або субота
+        return day === 0 || day === 6; // Неділя або субота
     }
 
-    isHoliday(date) {
-        // Тут можна додати логіку для святкових днів
-        const holidays = [
-            // Приклад: Новий рік
-            { month: 0, day: 1 },
-            // Різдво
-            { month: 0, day: 7 },
-            // День захисника України
-            { month: 9, day: 14 },
-            // День незалежності
-            { month: 7, day: 24 }
-        ];
-
-        return holidays.some(holiday => 
-            holiday.month === date.getMonth() && holiday.day === date.getDate()
-        );
-    }
-
-    generateTimesheet() {
-        const daysInMonth = this.getDaysInMonth(this.currentMonth, this.currentYear);
+    generateTable() {
+        const month = parseInt(document.getElementById('month').value);
+        const year = parseInt(document.getElementById('year').value);
+        const daysInMonth = this.getDaysInMonth(month, year);
         
+        this.currentMonth = month;
+        this.currentYear = year;
+        
+        const container = document.getElementById('timesheet-container');
+        
+        // Створюємо основну таблицю
         const table = document.createElement('table');
         table.className = 'timesheet-table';
         table.id = 'timesheetTable';
-
-        // Створюємо заголовки
-        this.createTableHeaders(table, daysInMonth);
         
-        // Додаємо рядки працівників
-        this.employees.forEach(employee => {
-            this.createEmployeeRow(table, employee, daysInMonth);
-        });
-
-        this.tableContainer.innerHTML = '';
-        this.tableContainer.appendChild(table);
-    }
-
-    createTableHeaders(table, daysInMonth) {
-        // Перший рядок заголовків
+        // Заголовок таблиці
         const headerRow1 = document.createElement('tr');
-        headerRow1.className = 'header-row-1';
-
-        // Основні колонки
-        const basicHeaders = [
-            { text: '№ п/п', rowspan: 2, width: '40px' },
-            { text: 'Прізвище, ім\'я, по батькові', rowspan: 2, width: '200px' },
-            { text: 'Посада (спеціальність, професія), розряд, клас (категорія) кваліфікації', rowspan: 2, width: '150px' },
-            { text: 'Табельний номер', rowspan: 2, width: '80px' },
-            { text: 'Стать', rowspan: 2, width: '50px' }
-        ];
-
+        const headerRow2 = document.createElement('tr');
+        
+        // Основні колонки + колонка для видалення
+        const basicHeaders = ['№ п/п', 'ПІБ', 'Посада', 'Табельний номер', 'Стать', 'Дії'];
         basicHeaders.forEach(header => {
-            const th = document.createElement('th');
-            th.textContent = header.text;
-            th.rowSpan = header.rowspan;
-            th.style.width = header.width;
-            th.className = 'basic-header';
-            headerRow1.appendChild(th);
+            const th1 = document.createElement('th');
+            th1.textContent = header;
+            th1.rowSpan = 2;
+            th1.className = 'basic-header';
+            headerRow1.appendChild(th1);
         });
-
-        // Заголовок для днів місяця
+        
+        // Дні місяця
         const daysHeader = document.createElement('th');
-        daysHeader.textContent = 'Відмітки про явки та неявки на роботу за числами місяця';
+        daysHeader.textContent = 'Дні місяця';
         daysHeader.colSpan = daysInMonth;
-        daysHeader.className = 'days-main-header';
+        daysHeader.className = 'days-header';
         headerRow1.appendChild(daysHeader);
-
-        // Підсумкові заголовки
+        
+        // Підсумкові колонки
         const summaryHeaders = [
-            'Відпрацьовано днів',
-            'Відпрацьовано годин всього',
-            'у т.ч. надурочних',
-            'у т.ч. нічних',
-            'у т.ч. вечірніх',
-            'у т.ч. святкових',
-            'Неявки з причин',
+            'Відпрацьовано за місяць (днів)',
+            'Відпрацьовано за місяць (годин всього)',
+            'з них надурочно',
+            'з них нічних',
+            'з них вечірніх', 
+            'з них святкових',
+            'Вихідних та святкових днів',
             'Основна та додаткова відпустки',
-            'Відпустка у зв\'язку з навч.',
+            'Відпустка навч./творчі',
             'Відпустка без збереження з/п',
-            'Відпустка вагітність та пологи',
-            'Відпустка догляд за дитиною до 3 років',
-            'Додаткова оплачувана відпустка',
+            'Відпустка вагітність/пологи',
+            'Відпустка догляд до 3 років',
+            'Додаткова відпустка (діти)',
             'Тимчасова непрацездатність',
             'Відрядження',
             'Інші причини неявок'
         ];
-
+        
         summaryHeaders.forEach(header => {
-            const th = document.createElement('th');
-            th.textContent = header;
-            th.rowSpan = 2;
-            th.className = 'summary-header';
-            headerRow1.appendChild(th);
+            const th1 = document.createElement('th');
+            th1.textContent = header;
+            th1.rowSpan = 2;
+            th1.className = 'summary-header';
+            headerRow1.appendChild(th1);
         });
-
-        // Кнопка дій
-        const actionsHeader = document.createElement('th');
-        actionsHeader.textContent = 'Дії';
-        actionsHeader.rowSpan = 2;
-        actionsHeader.className = 'actions-header';
-        headerRow1.appendChild(actionsHeader);
-
-        table.appendChild(headerRow1);
-
-        // Другий рядок заголовків (дні місяця)
-        const headerRow2 = document.createElement('tr');
-        headerRow2.className = 'header-row-2';
-
+        
+        // Дні місяця (другий рядок заголовка)
         for (let day = 1; day <= daysInMonth; day++) {
-            const th = document.createElement('th');
-            th.textContent = day;
-            th.className = 'day-header';
+            const th2 = document.createElement('th');
+            th2.textContent = day;
+            th2.className = 'day-header';
             
-            const date = new Date(this.currentYear, this.currentMonth, day);
+            const date = new Date(year, month, day);
             if (this.isWeekend(date)) {
-                th.classList.add('weekend');
-            }
-            if (this.isHoliday(date)) {
-                th.classList.add('holiday');
+                th2.classList.add('weekend');
             }
             
-            headerRow2.appendChild(th);
+            headerRow2.appendChild(th2);
         }
-
+        
+        table.appendChild(headerRow1);
         table.appendChild(headerRow2);
+        
+        // Додаємо рядки працівників
+        this.employees.forEach((employee, index) => {
+            this.createEmployeeRow(table, employee, index, daysInMonth);
+        });
+        
+        container.innerHTML = '';
+        container.appendChild(table);
     }
 
-    createEmployeeRow(table, employee, daysInMonth) {
-        const row = document.createElement('tr');
-        row.className = 'employee-row';
-        row.id = `employee-${employee.id}`;
-
-        // Основні дані працівника
+    createEmployeeRow(table, employee, index, daysInMonth) {
+        const dataRow = document.createElement('tr');
+        dataRow.id = `employeeRow_${employee.id}`;
+        dataRow.className = 'employee-row';
+        
+        // Основні дані
         const basicData = [
-            employee.number,
-            employee.fullName,
-            employee.position,
-            employee.personnelNumber,
-            employee.gender
+            { value: employee.number, type: 'number', readonly: true },
+            { value: employee.fullName, type: 'text', readonly: true },
+            { value: employee.position, type: 'text', readonly: true },
+            { value: employee.personnelNumber, type: 'text', readonly: true },
+            { value: employee.gender, type: 'text', readonly: true }
         ];
-
-        basicData.forEach((data, index) => {
+        
+        basicData.forEach((data, fieldIndex) => {
             const td = document.createElement('td');
-            td.className = 'basic-cell';
-            td.textContent = data;
-            row.appendChild(td);
+            td.className = 'basic-data';
+            const input = document.createElement('input');
+            input.type = data.type;
+            input.value = data.value;
+            input.readOnly = data.readonly;
+            input.id = `employee_${employee.id}_field_${fieldIndex}`;
+            td.appendChild(input);
+            dataRow.appendChild(td);
         });
-
-        // Дні місяця
+        
+        // Кнопка видалення
+        const actionTd = document.createElement('td');
+        actionTd.className = 'action-cell';
+        const deleteBtn = document.createElement('button');
+        deleteBtn.textContent = 'Видалити';
+        deleteBtn.className = 'delete-btn';
+        deleteBtn.addEventListener('click', () => this.removeEmployee(employee.id));
+        actionTd.appendChild(deleteBtn);
+        dataRow.appendChild(actionTd);
+        
+        // Дні місяця з двома рядками
         for (let day = 1; day <= daysInMonth; day++) {
             const td = document.createElement('td');
             td.className = 'day-cell';
             
+            // Верхній рядок для текстового позначення
+            const textInput = document.createElement('input');
+            textInput.type = 'text';
+            textInput.className = 'day-text-input';
+            textInput.maxLength = 3;
+            textInput.placeholder = '';
+            textInput.id = `employee_${employee.id}_day_${day}_text`;
+            textInput.addEventListener('input', () => this.calculateTotals(employee.id));
+            
+            // Нижній рядок для числового значення
+            const numberInput = document.createElement('input');
+            numberInput.type = 'number';
+            numberInput.className = 'day-number-input';
+            numberInput.min = '0';
+            numberInput.max = '24';
+            numberInput.step = '0.5';
+            numberInput.id = `employee_${employee.id}_day_${day}_number`;
+            numberInput.addEventListener('input', () => this.calculateTotals(employee.id));
+            
             const date = new Date(this.currentYear, this.currentMonth, day);
             if (this.isWeekend(date)) {
                 td.classList.add('weekend');
+                textInput.value = 'В'; // Вихідний
+                numberInput.value = '0';
             }
-            if (this.isHoliday(date)) {
-                td.classList.add('holiday');
-            }
-
+            
             // Контейнер для двох рядків
-            const container = document.createElement('div');
-            container.className = 'day-container';
-
-            // Верхній рядок для коду
-            const codeInput = document.createElement('input');
-            codeInput.type = 'text';
-            codeInput.className = 'day-code';
-            codeInput.maxLength = 3;
-            codeInput.id = `emp-${employee.id}-day-${day}-code`;
-            codeInput.addEventListener('input', () => this.calculateTotals(employee.id));
-
-            // Нижній рядок для годин
-            const hoursInput = document.createElement('input');
-            hoursInput.type = 'number';
-            hoursInput.className = 'day-hours';
-            hoursInput.min = '0';
-            hoursInput.max = '24';
-            hoursInput.step = '0.5';
-            hoursInput.id = `emp-${employee.id}-day-${day}-hours`;
-            hoursInput.addEventListener('input', () => this.calculateTotals(employee.id));
-
-            // Заповнюємо вихідні дні
-            if (this.isWeekend(date)) {
-                codeInput.value = 'В';
-                hoursInput.value = '0';
-                codeInput.readOnly = true;
-                hoursInput.readOnly = true;
-            }
-
-            container.appendChild(codeInput);
-            container.appendChild(hoursInput);
-            td.appendChild(container);
-            row.appendChild(td);
+            const cellContainer = document.createElement('div');
+            cellContainer.className = 'day-cell-container';
+            cellContainer.appendChild(textInput);
+            cellContainer.appendChild(numberInput);
+            
+            td.appendChild(cellContainer);
+            dataRow.appendChild(td);
         }
-
+        
         // Підсумкові колонки
-        for (let i = 0; i < 16; i++) {
+        const summaryHeaders = [
+            'Відпрацьовано за місяць (днів)',
+            'Відпрацьовано за місяць (годин всього)',
+            'з них надурочно',
+            'з них нічних',
+            'з них вечірніх', 
+            'з них святкових',
+            'Вихідних та святкових днів',
+            'Основна та додаткова відпустки',
+            'Відпустка навч./творчі',
+            'Відпустка без збереження з/п',
+            'Відпустка вагітність/пологи',
+            'Відпустка догляд до 3 років',
+            'Додаткова відпустка (діти)',
+            'Тимчасова непрацездатність',
+            'Відрядження',
+            'Інші причини неявок'
+        ];
+        
+        summaryHeaders.forEach((header, index) => {
             const td = document.createElement('td');
             td.className = 'summary-cell';
             const input = document.createElement('input');
             input.type = 'number';
             input.className = 'summary-input';
-            input.id = `emp-${employee.id}-summary-${i}`;
-            input.readOnly = true;
+            input.id = `employee_${employee.id}_summary_${index}`;
             input.min = '0';
+            input.readOnly = true;
             td.appendChild(input);
-            row.appendChild(td);
-        }
-
-        // Кнопка видалення
-        const actionTd = document.createElement('td');
-        actionTd.className = 'action-cell';
-        const deleteBtn = document.createElement('button');
-        deleteBtn.textContent = '×';
-        deleteBtn.className = 'delete-btn';
-        deleteBtn.title = 'Видалити працівника';
-        deleteBtn.addEventListener('click', () => this.removeEmployee(employee.id));
-        actionTd.appendChild(deleteBtn);
-        row.appendChild(actionTd);
-
-        table.appendChild(row);
-    }
-
-    showEmployeeForm() {
-        this.employeeForm.style.display = 'block';
-        document.getElementById('empFullName').focus();
-    }
-
-    hideEmployeeForm() {
-        this.employeeForm.style.display = 'none';
-        this.clearEmployeeForm();
-    }
-
-    clearEmployeeForm() {
-        document.getElementById('empFullName').value = '';
-        document.getElementById('empPosition').value = '';
-        document.getElementById('empPersonnelNumber').value = '';
-        document.getElementById('empGender').value = 'ч';
+            dataRow.appendChild(td);
+        });
+        
+        table.appendChild(dataRow);
     }
 
     addEmployee() {
-        const fullName = document.getElementById('empFullName').value.trim();
-        const position = document.getElementById('empPosition').value.trim();
-        const personnelNumber = document.getElementById('empPersonnelNumber').value.trim();
-        const gender = document.getElementById('empGender').value;
-
+        const fullName = document.getElementById('fullName').value.trim();
+        const position = document.getElementById('position').value.trim();
+        const personnelNumber = document.getElementById('personnelNumber').value.trim();
+        const gender = document.getElementById('gender').value;
+        
         if (!fullName || !position || !personnelNumber) {
-            alert('Будь ласка, заповніть всі обов\'язкові поля!');
+            alert('Будь ласка, заповніть всі поля!');
             return;
         }
-
+        
         const employee = {
-            id: Date.now(),
+            id: Date.now(), // Унікальний ID
             number: this.employeeCounter++,
             fullName: fullName,
             position: position,
             personnelNumber: personnelNumber,
             gender: gender
         };
-
+        
         this.employees.push(employee);
-        this.generateTimesheet();
-        this.hideEmployeeForm();
+        
+        // Очищуємо форму
+        document.getElementById('fullName').value = '';
+        document.getElementById('position').value = '';
+        document.getElementById('personnelNumber').value = '';
+        document.getElementById('gender').value = 'Ч';
+        
+        // Перегенеруємо таблицю
+        this.generateTable();
     }
-
+    
     removeEmployee(employeeId) {
         if (confirm('Ви впевнені, що хочете видалити цього працівника?')) {
             this.employees = this.employees.filter(emp => emp.id !== employeeId);
-            this.generateTimesheet();
+            this.generateTable();
         }
     }
+
 
     calculateTotals(employeeId) {
         const daysInMonth = this.getDaysInMonth(this.currentMonth, this.currentYear);
         
-        let stats = {
-            workedDays: 0,
-            totalHours: 0,
-            overtimeHours: 0,
-            nightHours: 0,
-            eveningHours: 0,
-            holidayHours: 0,
-            weekendDays: 0,
-            basicVacation: 0,
-            educationalVacation: 0,
-            unpaidVacation: 0,
-            maternityVacation: 0,
-            childcareVacation: 0,
-            additionalVacation: 0,
-            sickLeave: 0,
-            businessTrip: 0,
-            otherAbsences: 0
-        };
-
+        let workedDays = 0;
+        let totalHours = 0;
+        let overtimeHours = 0;
+        let nightHours = 0;
+        let eveningHours = 0;
+        let holidayHours = 0;
+        let weekendDays = 0;
+        let basicVacation = 0;
+        let educationalVacation = 0;
+        let unpaidVacation = 0;
+        let maternityVacation = 0;
+        let childCareVacation = 0;
+        let additionalVacation = 0;
+        let sickLeave = 0;
+        let businessTrip = 0;
+        let otherAbsences = 0;
+        
+        // Рахуємо для конкретного працівника
         for (let day = 1; day <= daysInMonth; day++) {
-            const codeInput = document.getElementById(`emp-${employeeId}-day-${day}-code`);
-            const hoursInput = document.getElementById(`emp-${employeeId}-day-${day}-hours`);
+            const textInput = document.getElementById(`employee_${employeeId}_day_${day}_text`);
+            const numberInput = document.getElementById(`employee_${employeeId}_day_${day}_number`);
             
-            if (!codeInput || !hoursInput) continue;
+            if (!textInput || !numberInput) continue;
             
-            const code = codeInput.value.trim().toUpperCase();
-            const hours = parseFloat(hoursInput.value) || 0;
-            
+            const textValue = textInput.value.trim().toUpperCase();
+            const numberValue = parseFloat(numberInput.value) || 0;
             const date = new Date(this.currentYear, this.currentMonth, day);
+            
             if (this.isWeekend(date)) {
-                stats.weekendDays++;
+                weekendDays++;
             }
-
-            if (code && hours > 0) {
-                switch (code) {
+            
+            if (textValue && numberValue > 0) {
+                switch (textValue) {
                     case 'Р':
-                        stats.workedDays++;
-                        stats.totalHours += hours;
+                        workedDays++;
+                        totalHours += numberValue;
                         break;
                     case 'ВЧ':
-                        stats.workedDays++;
-                        stats.totalHours += hours;
-                        stats.eveningHours += hours;
+                        workedDays++;
+                        totalHours += numberValue;
+                        eveningHours += numberValue;
                         break;
                     case 'РН':
-                        stats.workedDays++;
-                        stats.totalHours += hours;
-                        stats.nightHours += hours;
+                        workedDays++;
+                        totalHours += numberValue;
+                        nightHours += numberValue;
                         break;
                     case 'НУ':
-                        stats.workedDays++;
-                        stats.totalHours += hours;
-                        stats.overtimeHours += hours;
+                        workedDays++;
+                        totalHours += numberValue;
+                        overtimeHours += numberValue;
                         break;
                     case 'РВ':
-                        stats.additionalVacation += hours;
+                        additionalVacation += numberValue;
                         break;
                     case 'Ч':
-                        stats.additionalVacation += hours;
+                        additionalVacation += numberValue;
                         break;
                     case 'ТН':
-                        stats.sickLeave += hours;
+                        sickLeave += numberValue;
                         break;
                     case 'ІН':
-                        stats.otherAbsences += hours;
+                        otherAbsences += numberValue;
                         break;
                     case 'ВБ':
-                        stats.basicVacation += hours;
+                        businessTrip += numberValue;
                         break;
                 }
             }
         }
-
-        // Оновлюємо підсумкові поля
-        const summaryValues = [
-            stats.workedDays,
-            stats.totalHours,
-            stats.overtimeHours,
-            stats.nightHours,
-            stats.eveningHours,
-            stats.holidayHours,
-            stats.weekendDays,
-            stats.basicVacation,
-            stats.educationalVacation,
-            stats.unpaidVacation,
-            stats.maternityVacation,
-            stats.childcareVacation,
-            stats.additionalVacation,
-            stats.sickLeave,
-            stats.businessTrip,
-            stats.otherAbsences
-        ];
-
-        summaryValues.forEach((value, index) => {
-            const input = document.getElementById(`emp-${employeeId}-summary-${index}`);
-            if (input) {
-                input.value = value;
-            }
-        });
+        
+        // Оновлення підсумкових полів для конкретного працівника
+        const updateSummary = (index, value) => {
+            const input = document.getElementById(`employee_${employeeId}_summary_${index}`);
+            if (input) input.value = value;
+        };
+        
+        updateSummary(0, workedDays); // Відпрацьовано днів
+        updateSummary(1, totalHours); // Відпрацьовано годин всього
+        updateSummary(2, overtimeHours); // Надурочно
+        updateSummary(3, nightHours); // Нічних
+        updateSummary(4, eveningHours); // Вечірніх
+        updateSummary(5, holidayHours); // Святкових
+        updateSummary(6, weekendDays); // Вихідних днів
+        updateSummary(7, basicVacation); // Основна відпустка
+        updateSummary(8, educationalVacation); // Навч. відпустка
+        updateSummary(9, unpaidVacation); // Без збереження з/п
+        updateSummary(10, maternityVacation); // Материнська
+        updateSummary(11, childCareVacation); // Догляд за дитиною
+        updateSummary(12, additionalVacation); // Додаткова відпустка
+        updateSummary(13, sickLeave); // Лікарняний
+        updateSummary(14, businessTrip); // Відрядження
+        updateSummary(15, otherAbsences); // Інші причини
     }
 
     exportToExcel() {
@@ -442,23 +387,52 @@ class OriginalTimesheet {
             return;
         }
 
+        // Створюємо workbook
         const wb = XLSX.utils.book_new();
+        
+        // Перетворюємо таблицю в worksheet
         const ws = XLSX.utils.table_to_sheet(table);
         
+        // Налаштування стилів
+        const range = XLSX.utils.decode_range(ws['!ref']);
+        
+        // Встановлюємо ширину колонок
+        const colWidths = [];
+        colWidths[0] = { wch: 5 };  // № п/п
+        colWidths[1] = { wch: 25 }; // ПІБ
+        colWidths[2] = { wch: 20 }; // Посада
+        colWidths[3] = { wch: 15 }; // Табельний номер
+        colWidths[4] = { wch: 8 };  // Стать
+        
+        // Дні місяця
+        const daysInMonth = this.getDaysInMonth(this.currentMonth, this.currentYear);
+        for (let i = 0; i < daysInMonth; i++) {
+            colWidths[5 + i] = { wch: 4 };
+        }
+        
+        // Підсумкові колонки
+        for (let i = 5 + daysInMonth; i <= range.e.c; i++) {
+            colWidths[i] = { wch: 12 };
+        }
+        
+        ws['!cols'] = colWidths;
+        
+        // Додаємо worksheet до workbook
         const monthNames = [
-            'січень', 'лютий', 'березень', 'квітень', 'травень', 'червень',
-            'липень', 'серпень', 'вересень', 'жовтень', 'листопад', 'грудень'
+            'Січень', 'Лютий', 'Березень', 'Квітень', 'Травень', 'Червень',
+            'Липень', 'Серпень', 'Вересень', 'Жовтень', 'Листопад', 'Грудень'
         ];
         
-        const sheetName = `Табель_${monthNames[this.currentMonth]}_${this.currentYear}`;
+        const sheetName = `${monthNames[this.currentMonth]} ${this.currentYear}`;
         XLSX.utils.book_append_sheet(wb, ws, sheetName);
         
+        // Експортуємо файл
         const fileName = `Табель_${monthNames[this.currentMonth]}_${this.currentYear}.xlsx`;
         XLSX.writeFile(wb, fileName);
     }
 }
 
-// Ініціалізація
+// Ініціалізація при завантаженні сторінки
 document.addEventListener('DOMContentLoaded', () => {
-    new OriginalTimesheet();
+    new TimesheetGenerator();
 });

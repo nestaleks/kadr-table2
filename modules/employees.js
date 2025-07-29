@@ -197,6 +197,35 @@ class EmployeesModule extends BaseModule {
             this.saveEmployee();
         });
 
+        // Обробка чекбоксу військовозобов'язаності
+        document.addEventListener('change', (e) => {
+            if (e.target && e.target.id === 'militaryIsLiable') {
+                const militaryFields = document.getElementById('militaryFields');
+                if (militaryFields) {
+                    militaryFields.style.display = e.target.checked ? 'block' : 'none';
+                    
+                    // Якщо чекбокс не встановлено, очищуємо всі поля
+                    if (!e.target.checked) {
+                        const form = e.target.closest('form');
+                        if (form) {
+                            form.querySelector('[name="militaryStatus"]').value = '';
+                            form.querySelector('[name="militaryRank"]').value = '';
+                            form.querySelector('[name="militarySpecialty"]').value = '';
+                            form.querySelector('[name="militaryIdNumber"]').value = '';
+                            form.querySelector('[name="militaryIdDate"]').value = '';
+                            form.querySelector('[name="militaryIdIssuedBy"]').value = '';
+                            form.querySelector('[name="militaryBranch"]').value = '';
+                            form.querySelector('[name="militaryRegistrationDate"]').value = '';
+                            form.querySelector('[name="militaryCommissariat"]').value = '';
+                            form.querySelector('[name="bloodType"]').value = '';
+                            form.querySelector('[name="healthCategory"]').value = '';
+                            form.querySelector('[name="militaryNotes"]').value = '';
+                        }
+                    }
+                }
+            }
+        });
+
         // Скасування
         document.getElementById('cancelEmployeeBtn')?.addEventListener('click', () => {
             this.hideEmployeeModal();
@@ -361,6 +390,7 @@ class EmployeesModule extends BaseModule {
                     <button type="button" class="tab-btn" data-tab="work">Робота</button>
                     <button type="button" class="tab-btn" data-tab="personal">Особисті дані</button>
                     <button type="button" class="tab-btn" data-tab="documents">Документи</button>
+                    <button type="button" class="tab-btn" data-tab="military">Військовий облік</button>
                 </div>
 
                 <div class="tab-content active" id="basicTab">
@@ -496,6 +526,114 @@ class EmployeesModule extends BaseModule {
                         <div class="form-group">
                             <label>Дата видачі</label>
                             <input type="date" name="passportIssuedDate" value="${employee.passport?.issuedDate || ''}">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="tab-content" id="militaryTab">
+                    <!-- Чекбокс для військовозобов'язаності -->
+                    <div class="form-row">
+                        <div class="form-group full-width">
+                            <label class="checkbox-label">
+                                <input type="checkbox" name="militaryIsLiable" id="militaryIsLiable" ${employee.military?.isLiable ? 'checked' : ''}>
+                                <span class="checkmark"></span>
+                                Цей працівник є військовозобов'язаним
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Військові поля (приховані за замовчуванням) -->
+                    <div id="militaryFields" style="display: ${employee.military?.isLiable ? 'block' : 'none'};">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Статус військовозобов'язаності</label>
+                                <select name="militaryStatus">
+                                    <option value="">Виберіть статус</option>
+                                    <option value="liable" ${employee.military?.status === 'liable' ? 'selected' : ''}>Військовозобов'язаний</option>
+                                    <option value="not_liable" ${employee.military?.status === 'not_liable' ? 'selected' : ''}>Не військовозобов'язаний</option>
+                                    <option value="limited" ${employee.military?.status === 'limited' ? 'selected' : ''}>Обмежено придатний</option>
+                                    <option value="unfit" ${employee.military?.status === 'unfit' ? 'selected' : ''}>Непридатний до військової служби</option>
+                                </select>
+                            </div>
+                        <div class="form-group">
+                            <label>Військове звання</label>
+                            <input type="text" name="militaryRank" value="${employee.military?.rank || ''}" placeholder="Наприклад: старший солдат">
+                        </div>
+                        <div class="form-group">
+                            <label>Військово-облікова спеціальність</label>
+                            <input type="text" name="militarySpecialty" value="${employee.military?.specialty || ''}" placeholder="Наприклад: стрілець">
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Номер військового квитка</label>
+                            <input type="text" name="militaryIdNumber" value="${employee.military?.idNumber || ''}" placeholder="Серія та номер">
+                        </div>
+                        <div class="form-group">
+                            <label>Дата видачі військового квитка</label>
+                            <input type="date" name="militaryIdDate" value="${employee.military?.idDate || ''}">
+                        </div>
+                        <div class="form-group">
+                            <label>Ким виданий</label>
+                            <input type="text" name="militaryIdIssuedBy" value="${employee.military?.idIssuedBy || ''}" placeholder="Військовий комісаріат">
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Склад (рід військ)</label>
+                            <select name="militaryBranch">
+                                <option value="">Виберіть склад</option>
+                                <option value="ground_forces" ${employee.military?.branch === 'ground_forces' ? 'selected' : ''}>Сухопутні війська</option>
+                                <option value="navy" ${employee.military?.branch === 'navy' ? 'selected' : ''}>Військово-Морські Сили</option>
+                                <option value="air_force" ${employee.military?.branch === 'air_force' ? 'selected' : ''}>Повітряні Сили</option>
+                                <option value="special_operations" ${employee.military?.branch === 'special_operations' ? 'selected' : ''}>Сили спеціальних операцій</option>
+                                <option value="territorial_defense" ${employee.military?.branch === 'territorial_defense' ? 'selected' : ''}>Сили територіальної оборони</option>
+                                <option value="other" ${employee.military?.branch === 'other' ? 'selected' : ''}>Інше</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Дата останньої приписки</label>
+                            <input type="date" name="militaryRegistrationDate" value="${employee.military?.registrationDate || ''}">
+                        </div>
+                        <div class="form-group">
+                            <label>Військовий комісаріат</label>
+                            <input type="text" name="militaryCommissariat" value="${employee.military?.commissariat || ''}" placeholder="Назва військкомату">
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Група крові</label>
+                            <select name="bloodType">
+                                <option value="">Виберіть групу крові</option>
+                                <option value="I+" ${employee.military?.bloodType === 'I+' ? 'selected' : ''}>I (Rh+)</option>
+                                <option value="I-" ${employee.military?.bloodType === 'I-' ? 'selected' : ''}>I (Rh-)</option>
+                                <option value="II+" ${employee.military?.bloodType === 'II+' ? 'selected' : ''}>II (Rh+)</option>
+                                <option value="II-" ${employee.military?.bloodType === 'II-' ? 'selected' : ''}>II (Rh-)</option>
+                                <option value="III+" ${employee.military?.bloodType === 'III+' ? 'selected' : ''}>III (Rh+)</option>
+                                <option value="III-" ${employee.military?.bloodType === 'III-' ? 'selected' : ''}>III (Rh-)</option>
+                                <option value="IV+" ${employee.military?.bloodType === 'IV+' ? 'selected' : ''}>IV (Rh+)</option>
+                                <option value="IV-" ${employee.military?.bloodType === 'IV-' ? 'selected' : ''}>IV (Rh-)</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Стан здоров'я (категорія)</label>
+                            <select name="healthCategory">
+                                <option value="">Виберіть категорію</option>
+                                <option value="A" ${employee.military?.healthCategory === 'A' ? 'selected' : ''}>А - придатний до військової служби</option>
+                                <option value="B" ${employee.military?.healthCategory === 'B' ? 'selected' : ''}>Б - придатний до військової служби з незначними обмеженнями</option>
+                                <option value="C" ${employee.military?.healthCategory === 'C' ? 'selected' : ''}>В - обмежено придатний до військової служби</option>
+                                <option value="D" ${employee.military?.healthCategory === 'D' ? 'selected' : ''}>Г - тимчасово непридатний до військової служби</option>
+                                <option value="E" ${employee.military?.healthCategory === 'E' ? 'selected' : ''}>Д - непридатний до військової служби</option>
+                            </select>
+                        </div>
+                    </div>
+
+                        <div class="form-group">
+                            <label>Примітки щодо військової служби</label>
+                            <textarea name="militaryNotes" rows="3" placeholder="Додаткова інформація про військову службу, звільнення, мобілізацію тощо">${employee.military?.notes || ''}</textarea>
                         </div>
                     </div>
                 </div>
@@ -654,6 +792,24 @@ class EmployeesModule extends BaseModule {
         
         data.taxNumber = formData.get('taxNumber');
         data.notes = formData.get('notes');
+        
+        // Військовозобов'язаність
+        const isLiable = formData.get('militaryIsLiable') === 'on';
+        data.military = {
+            isLiable: isLiable,
+            status: isLiable ? formData.get('militaryStatus') : '',
+            rank: isLiable ? formData.get('militaryRank') : '',
+            specialty: isLiable ? formData.get('militarySpecialty') : '',
+            idNumber: isLiable ? formData.get('militaryIdNumber') : '',
+            idDate: isLiable ? (formData.get('militaryIdDate') || null) : null,
+            idIssuedBy: isLiable ? formData.get('militaryIdIssuedBy') : '',
+            branch: isLiable ? formData.get('militaryBranch') : '',
+            registrationDate: isLiable ? (formData.get('militaryRegistrationDate') || null) : null,
+            commissariat: isLiable ? formData.get('militaryCommissariat') : '',
+            bloodType: isLiable ? formData.get('bloodType') : '',
+            healthCategory: isLiable ? formData.get('healthCategory') : '',
+            notes: isLiable ? formData.get('militaryNotes') : ''
+        };
         
         // Зарплата
         data.salary = {
@@ -833,6 +989,50 @@ class EmployeesModule extends BaseModule {
                         </div>
                     </div>
 
+                    <div class="detail-section">
+                        <h4><i class="fas fa-shield-alt"></i> Військовий облік</h4>
+                        <div class="detail-grid">
+                            <div class="detail-item">
+                                <label>Статус:</label>
+                                <span>${this.getMilitaryStatusText(employee.military?.status)}</span>
+                            </div>
+                            <div class="detail-item">
+                                <label>Військове звання:</label>
+                                <span>${employee.military?.rank || 'Не вказано'}</span>
+                            </div>
+                            <div class="detail-item">
+                                <label>Спеціальність:</label>
+                                <span>${employee.military?.specialty || 'Не вказано'}</span>
+                            </div>
+                            <div class="detail-item">
+                                <label>Військовий квиток:</label>
+                                <span>${employee.military?.idNumber || 'Не вказано'}</span>
+                            </div>
+                            <div class="detail-item">
+                                <label>Рід військ:</label>
+                                <span>${this.getMilitaryBranchText(employee.military?.branch)}</span>
+                            </div>
+                            <div class="detail-item">
+                                <label>Військкомат:</label>
+                                <span>${employee.military?.commissariat || 'Не вказано'}</span>
+                            </div>
+                            <div class="detail-item">
+                                <label>Група крові:</label>
+                                <span>${employee.military?.bloodType || 'Не вказано'}</span>
+                            </div>
+                            <div class="detail-item">
+                                <label>Категорія здоров'я:</label>
+                                <span>${this.getHealthCategoryText(employee.military?.healthCategory)}</span>
+                            </div>
+                        </div>
+                        ${employee.military?.notes ? `
+                            <div class="military-notes">
+                                <strong>Примітки:</strong>
+                                <p>${employee.military.notes}</p>
+                            </div>
+                        ` : ''}
+                    </div>
+
                     ${employee.notes ? `
                         <div class="detail-section">
                             <h4><i class="fas fa-sticky-note"></i> Примітки</h4>
@@ -930,6 +1130,39 @@ class EmployeesModule extends BaseModule {
             statsItems[2].textContent = this.employees.filter(e => e.status === 'sick').length;
             statsItems[3].textContent = this.getNewEmployeesThisMonth();
         }
+    }
+
+    getMilitaryStatusText(status) {
+        const statuses = {
+            liable: 'Військовозобов\'язаний',
+            not_liable: 'Не військовозобов\'язаний',
+            limited: 'Обмежено придатний',
+            unfit: 'Непридатний до військової служби'
+        };
+        return statuses[status] || 'Не вказано';
+    }
+
+    getMilitaryBranchText(branch) {
+        const branches = {
+            ground_forces: 'Сухопутні війська',
+            navy: 'Військово-Морські Сили',
+            air_force: 'Повітряні Сили',
+            special_operations: 'Сили спеціальних операцій',
+            territorial_defense: 'Сили територіальної оборони',
+            other: 'Інше'
+        };
+        return branches[branch] || 'Не вказано';
+    }
+
+    getHealthCategoryText(category) {
+        const categories = {
+            A: 'А - придатний до військової служби',
+            B: 'Б - придатний до військової служби з незначними обмеженнями',
+            C: 'В - обмежено придатний до військової служби',
+            D: 'Г - тимчасово непридатний до військової служби',
+            E: 'Д - непридатний до військової служби'
+        };
+        return categories[category] || 'Не вказано';
     }
 }
 

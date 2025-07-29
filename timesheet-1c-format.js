@@ -1,731 +1,1176 @@
 /**
- * Табель обліку робочого часу - Формат 1С
- * JavaScript функціональність
+ * Табель обліку робочого часу - формат 1С
+ * Імплементація функціональності для роботи з табелем у форматі 1С
  */
 
-class Timesheet1C {
+class Timesheet1CFormat {
     constructor() {
-        this.employees = [];
-        this.currentMonth = 2; // Березень (0-індекс)
-        this.currentYear = 2025;
-        this.workingDays = [];
-        this.weekends = [];
-        this.holidays = [];
-        
-        // Українські коди відсутності
-        this.absenceCodes = {
-            'Я': { name: 'Явка на роботу', color: '#e8f5e8', hours: 8 },
-            'В': { name: 'Відпустка', color: '#fff3cd', hours: 0 },
-            'Л': { name: 'Лікарняний', color: '#f8d7da', hours: 0 },
-            'К': { name: 'Відрядження', color: '#d1ecf1', hours: 8 },
-            'Н': { name: 'Неявка невиправдана', color: '#f8d7da', hours: 0 },
-            'П': { name: 'Прогул', color: '#f5c6cb', hours: 0 },
-            'Р': { name: 'Вихідний день', color: '#ffe0e0', hours: 0 },
-            'С': { name: 'Святковий день', color: '#ffcccc', hours: 0 },
-            'М': { name: 'Відпустка по догляду за дитиною', color: '#e2e3e5', hours: 0 },
-            'Д': { name: 'Додаткова відпустка', color: '#fff3cd', hours: 0 },
-            'З': { name: 'Запізнення', color: '#ffeeba', hours: 6 },
-            'О': { name: 'Понаднормовий час', color: '#c3e6cb', hours: 10 }
+        this.database = null;
+        this.currentPeriod = {
+            month: new Date().getMonth(),
+            year: new Date().getFullYear()
         };
+        this.employees = [];
+        this.departments = [];
+        this.currentDepartment = 'all';
+        this.timesheetData = new Map(); // employeeId -> day -> {code, hours}
+        this.selectedEmployees = new Set();
         
-        // Святкові дні України 2025
-        this.ukrainianHolidays = {
-            '2025': {
-                '0': [1, 7], // Січень: 1 - Новий рік, 7 - Різдво
-                '2': [8], // Березень: 8 - Міжнародний жіночий день
-                '4': [1, 9], // Травень: 1 - День праці, 9 - День Перемоги
-                '5': [28], // Червень: 28 - День Конституції
-                '7': [24], // Серпень: 24 - День Незалежності
-                '9': [14] // Жовтень: 14 - День захисника України
-            }
+        // Коди робочого часу
+        this.workCodes = {
+            'Я': 'Явка на роботу',
+            'В': 'Відпустка',
+            'Л': 'Лікарняний',
+            'К': 'Відрядження',
+            'Н': 'Неявка невиправдана',
+            'П': 'Прогул',
+            'Р': 'Вихідний день',
+            'С': 'Святковий день',
+            'М': 'Відпустка по догляду за дитиною',
+            'Д': 'Додаткова відпустка',
+            'З': 'Запізнення',
+            'О': 'Понаднормовий час'
         };
         
         this.init();
     }
-    
-    init() {
-        this.setupEventListeners();
-        this.loadSavedData();
-        this.updateCurrentDate();
-        this.generateCalendar();
-    }
-    
-    setupEventListeners() {
-        // Основні кнопки
-        document.getElementById('generateTimesheet').addEventListener('click', () => this.generateTimesheet());
-        document.getElementById('addEmployeeBtn').addEventListener('click', () => this.showEmployeeModal());
-        document.getElementById('fillWorkingDays').addEventListener('click', () => this.fillWorkingDays());
-        document.getElementById('calculateTotals').addEventListener('click', () => this.calculateTotals());
-        document.getElementById('exportExcel').addEventListener('click', () => this.exportToExcel());
-        document.getElementById('printTimesheet').addEventListener('click', () => this.printTimesheet());
-        
-        // Модальне вікно
-        document.getElementById('closeModal').addEventListener('click', () => this.hideEmployeeModal());
-        document.getElementById('saveEmployee').addEventListener('click', () => this.saveEmployee());
-        document.getElementById('cancelEmployee').addEventListener('click', () => this.hideEmployeeModal());
-        
-        // Зміна періоду
-        document.getElementById('periodMonth').addEventListener('change', (e) => {
-            this.currentMonth = parseInt(e.target.value);
-            this.generateCalendar();
-            this.generateTimesheet();
-        });
-        
-        document.getElementById('periodYear').addEventListener('change', (e) => {
-            this.currentYear = parseInt(e.target.value);
-            this.generateCalendar();
-            this.generateTimesheet();
-        });
-        
-        // Закриття модального вікна по кліку поза ним
-        window.addEventListener('click', (e) => {
-            const modal = document.getElementById('employeeModal');
-            if (e.target === modal) {
-                this.hideEmployeeModal();
-            }
-        });
-        
-        // Контекстне меню для клітинок днів
-        document.addEventListener('contextmenu', (e) => {
-            if (e.target.classList.contains('day-cell')) {
-                e.preventDefault();
-                this.showContextMenu(e, e.target);
-            }
-        });
-        
-        // Закриття контекстного меню
-        document.addEventListener('click', () => {
-            this.hideContextMenu();
-        });
-    }
-    
-    updateCurrentDate() {
-        const now = new Date();
-        document.getElementById('periodMonth').value = this.currentMonth;
-        document.getElementById('periodYear').value = this.currentYear;
-        document.getElementById('signatureDate').value = now.toISOString().split('T')[0];
-    }
-    
-    generateCalendar() {
-        const daysInMonth = new Date(this.currentYear, this.currentMonth + 1, 0).getDate();
-        this.workingDays = [];
-        this.weekends = [];
-        this.holidays = [];
-        
-        for (let day = 1; day <= daysInMonth; day++) {
-            const date = new Date(this.currentYear, this.currentMonth, day);
-            const dayOfWeek = date.getDay(); // 0 = неділя, 6 = субота
-            
-            // Перевіряємо, чи це святковий день
-            const holidaysThisMonth = this.ukrainianHolidays[this.currentYear]?.[this.currentMonth] || [];
-            if (holidaysThisMonth.includes(day)) {
-                this.holidays.push(day);
-            }
-            // Перевіряємо вихідні (субота, неділя)
-            else if (dayOfWeek === 0 || dayOfWeek === 6) {
-                this.weekends.push(day);
-            }
-            // Інакше це робочий день
-            else {
-                this.workingDays.push(day);
-            }
-        }
-        
-        this.updateSummaryInfo();
-    }
-    
-    updateSummaryInfo() {
-        document.getElementById('workingDaysInPeriod').textContent = this.workingDays.length;
-        document.getElementById('holidaysInPeriod').textContent = this.holidays.length;
-        document.getElementById('totalEmployees').textContent = this.employees.length;
-    }
-    
-    generateTimesheet() {
-        const table = document.getElementById('timesheetTable');
-        const daysInMonth = new Date(this.currentYear, this.currentMonth + 1, 0).getDate();
-        
-        // Очищуємо таблицю
-        table.innerHTML = '';
-        
-        // Створюємо заголовок
-        this.createTableHeader(table, daysInMonth);
-        
-        // Створюємо тіло таблиці
-        const tbody = document.createElement('tbody');
-        
-        if (this.employees.length === 0) {
-            const emptyRow = document.createElement('tr');
-            emptyRow.innerHTML = `
-                <td colspan="${daysInMonth + 7}" style="text-align: center; padding: 20px; color: #666;">
-                    Немає співробітників. Натисніть "Додати співробітника" для початку роботи.
-                </td>
-            `;
-            tbody.appendChild(emptyRow);
-        } else {
-            this.employees.forEach((employee, index) => {
-                const row = this.createEmployeeRow(employee, index, daysInMonth);
-                tbody.appendChild(row);
-            });
-        }
-        
-        table.appendChild(tbody);
-        this.attachCellEvents();
-    }
-    
-    createTableHeader(table, daysInMonth) {
-        const thead = document.createElement('thead');
-        
-        // Перший рядок заголовка
-        const headerRow1 = document.createElement('tr');
-        headerRow1.innerHTML = `
-            <th class="header-main" rowspan="2">№ п/п</th>
-            <th class="header-main" rowspan="2">Табельний номер</th>
-            <th class="header-main" rowspan="2">Прізвище, ім'я, по батькові</th>
-            <th class="header-main" colspan="${daysInMonth}">Відмітки про явки і неявки на роботу по числах місяця</th>
-            <th class="header-main" colspan="4">Підсумок за місяць</th>
-        `;
-        
-        // Другий рядок заголовка
-        const headerRow2 = document.createElement('tr');
-        let dayHeaders = '';
-        
-        // Дні місяця
-        for (let day = 1; day <= daysInMonth; day++) {
-            const date = new Date(this.currentYear, this.currentMonth, day);
-            const dayOfWeek = date.getDay();
-            let cellClass = 'header-day';
-            
-            if (this.holidays.includes(day)) {
-                cellClass += ' holiday';
-            } else if (dayOfWeek === 0 || dayOfWeek === 6) {
-                cellClass += ' weekend';
-            }
-            
-            dayHeaders += `<th class="${cellClass}">${day}</th>`;
-        }
-        
-        headerRow2.innerHTML = dayHeaders + `
-            <th class="header-summary">Відпрацьовано днів</th>
-            <th class="header-summary">Відпрацьовано годин</th>
-            <th class="header-summary">Неявки</th>
-            <th class="header-summary">Примітки</th>
-        `;
-        
-        thead.appendChild(headerRow1);
-        thead.appendChild(headerRow2);
-        table.appendChild(thead);
-    }
-    
-    createEmployeeRow(employee, index, daysInMonth) {
-        const row = document.createElement('tr');
-        row.dataset.employeeIndex = index;
-        
-        let cellsHTML = `
-            <td class="tab-number">${index + 1}</td>
-            <td class="tab-number">${employee.tabNumber}</td>
-            <td class="employee-name">${employee.fullName}</td>
-        `;
-        
-        // Клітинки для днів
-        for (let day = 1; day <= daysInMonth; day++) {
-            const cellId = `cell-${index}-${day}`;
-            let cellClass = 'day-cell';
-            let cellContent = '';
-            
-            // Отримуємо збережені дані для цього дня
-            const savedData = this.getSavedCellData(employee.tabNumber, day);
-            if (savedData) {
-                cellContent = savedData.code;
-                cellClass += ` ${savedData.type}`;
-            } else {
-                // Автоматично встановлюємо тип дня
-                if (this.holidays.includes(day)) {
-                    cellContent = 'С';
-                    cellClass += ' holiday';
-                } else if (this.weekends.includes(day)) {
-                    cellContent = 'Р';
-                    cellClass += ' weekend';
-                }
-            }
-            
-            cellsHTML += `<td id="${cellId}" class="${cellClass}" 
-                data-employee="${index}" data-day="${day}" 
-                data-tab-number="${employee.tabNumber}">${cellContent}</td>`;
-        }
-        
-        // Підсумкові колонки
-        const summary = this.calculateEmployeeSummary(employee, daysInMonth);
-        cellsHTML += `
-            <td class="summary-cell summary-days">${summary.workingDays}</td>
-            <td class="summary-cell summary-hours">${summary.workingHours}</td>
-            <td class="summary-cell summary-absences">${summary.absences}</td>
-            <td class="summary-cell summary-notes">
-                <input type="text" class="notes-input" value="${employee.notes || ''}" 
-                       onchange="timesheet.updateEmployeeNotes(${index}, this.value)">
-            </td>
-        `;
-        
-        row.innerHTML = cellsHTML;
-        return row;
-    }
-    
-    calculateEmployeeSummary(employee, daysInMonth) {
-        let workingDays = 0;
-        let workingHours = 0;
-        let absences = 0;
-        
-        for (let day = 1; day <= daysInMonth; day++) {
-            const cellData = this.getSavedCellData(employee.tabNumber, day);
-            if (cellData && cellData.code) {
-                const code = cellData.code;
-                const codeInfo = this.absenceCodes[code];
-                
-                if (codeInfo) {
-                    if (code === 'Я' || code === 'К' || code === 'О') {
-                        workingDays++;
-                        workingHours += codeInfo.hours;
-                    } else if (code === 'З') {
-                        workingDays++;
-                        workingHours += codeInfo.hours;
-                    } else if (['В', 'Л', 'Н', 'П', 'М', 'Д'].includes(code)) {
-                        absences++;
-                    }
-                }
-            }
-        }
-        
-        return { workingDays, workingHours, absences };
-    }
-    
-    attachCellEvents() {
-        document.querySelectorAll('.day-cell').forEach(cell => {
-            cell.addEventListener('click', (e) => {
-                this.handleCellClick(e.target);
-            });
-            
-            cell.addEventListener('dblclick', (e) => {
-                this.handleCellDoubleClick(e.target);
-            });
-        });
-    }
-    
-    handleCellClick(cell) {
-        const currentCode = cell.textContent.trim();
-        const nextCode = this.getNextCode(currentCode);
-        this.setCellCode(cell, nextCode);
-    }
-    
-    handleCellDoubleClick(cell) {
-        // При подвійному кліку відкриваємо контекстне меню
-        const rect = cell.getBoundingClientRect();
-        const event = { 
-            clientX: rect.left + rect.width / 2, 
-            clientY: rect.top + rect.height / 2 
-        };
-        this.showContextMenu(event, cell);
-    }
-    
-    getNextCode(currentCode) {
-        const codes = ['', 'Я', 'В', 'Л', 'Н', 'Р', 'С'];
-        const currentIndex = codes.indexOf(currentCode);
-        return codes[(currentIndex + 1) % codes.length];
-    }
-    
-    setCellCode(cell, code) {
-        const day = parseInt(cell.dataset.day);
-        const tabNumber = cell.dataset.tabNumber;
-        
-        cell.textContent = code;
-        cell.className = 'day-cell';
-        
-        if (code && this.absenceCodes[code]) {
-            const codeInfo = this.absenceCodes[code];
-            cell.style.backgroundColor = codeInfo.color;
-            
-            // Додаємо клас для стилізації
-            if (code === 'Я') cell.classList.add('working');
-            else if (['В', 'Д'].includes(code)) cell.classList.add('vacation');
-            else if (code === 'Л') cell.classList.add('sick');
-            else if (['Н', 'П'].includes(code)) cell.classList.add('absent');
-            else if (['Р', 'С'].includes(code)) cell.classList.add('weekend');
-        }
-        
-        // Зберігаємо дані
-        this.saveCellData(tabNumber, day, { code, type: this.getCellTypeByCode(code) });
-        
-        // Оновлюємо підсумки
-        this.updateEmployeeSummaryInTable(cell.dataset.employee);
-        
-        // Анімація оновлення
-        cell.classList.add('updated');
-        setTimeout(() => cell.classList.remove('updated'), 1000);
-    }
-    
-    getCellTypeByCode(code) {
-        if (code === 'Я') return 'working';
-        if (['В', 'Д'].includes(code)) return 'vacation';
-        if (code === 'Л') return 'sick';
-        if (['Н', 'П'].includes(code)) return 'absent';
-        if (['Р', 'С'].includes(code)) return 'weekend';
-        return '';
-    }
-    
-    updateEmployeeSummaryInTable(employeeIndex) {
-        const employee = this.employees[employeeIndex];
-        if (!employee) return;
-        
-        const daysInMonth = new Date(this.currentYear, this.currentMonth + 1, 0).getDate();
-        const summary = this.calculateEmployeeSummary(employee, daysInMonth);
-        
-        const row = document.querySelector(`tr[data-employee-index="${employeeIndex}"]`);
-        if (row) {
-            row.querySelector('.summary-days').textContent = summary.workingDays;
-            row.querySelector('.summary-hours').textContent = summary.workingHours;
-            row.querySelector('.summary-absences').textContent = summary.absences;
-        }
-    }
-    
-    showContextMenu(event, cell) {
-        this.hideContextMenu();
-        
-        const menu = document.createElement('div');
-        menu.className = 'context-menu';
-        menu.style.left = event.clientX + 'px';
-        menu.style.top = event.clientY + 'px';
-        
-        let menuHTML = '';
-        Object.entries(this.absenceCodes).forEach(([code, info]) => {
-            menuHTML += `
-                <div class="context-menu-item" data-code="${code}">
-                    <span class="legend-code" style="background-color: ${info.color}">${code}</span>
-                    <span>${info.name}</span>
-                </div>
-            `;
-        });
-        
-        menu.innerHTML = menuHTML;
-        document.body.appendChild(menu);
-        
-        // Додаємо обробники для пунктів меню
-        menu.querySelectorAll('.context-menu-item').forEach(item => {
-            item.addEventListener('click', (e) => {
-                e.stopPropagation();
-                const code = item.dataset.code;
-                this.setCellCode(cell, code);
-                this.hideContextMenu();
-            });
-        });
-        
-        // Позиціонуємо меню, щоб воно не виходило за межі екрана
-        const rect = menu.getBoundingClientRect();
-        if (rect.right > window.innerWidth) {
-            menu.style.left = (event.clientX - rect.width) + 'px';
-        }
-        if (rect.bottom > window.innerHeight) {
-            menu.style.top = (event.clientY - rect.height) + 'px';
-        }
-    }
-    
-    hideContextMenu() {
-        const existingMenu = document.querySelector('.context-menu');
-        if (existingMenu) {
-            existingMenu.remove();
-        }
-    }
-    
-    showEmployeeModal() {
-        document.getElementById('employeeModal').style.display = 'block';
-        document.getElementById('empTabNumber').focus();
-    }
-    
-    hideEmployeeModal() {
-        document.getElementById('employeeModal').style.display = 'none';
-        this.clearEmployeeForm();
-    }
-    
-    clearEmployeeForm() {
-        document.getElementById('employeeForm').reset();
-        document.getElementById('empWorkingHours').value = '8';
-        document.getElementById('empSchedule').value = 'full';
-    }
-    
-    saveEmployee() {
-        const formData = {
-            tabNumber: document.getElementById('empTabNumber').value.trim(),
-            fullName: document.getElementById('empFullName').value.trim(),
-            position: document.getElementById('empPosition').value.trim(),
-            department: document.getElementById('empDepartment').value.trim(),
-            schedule: document.getElementById('empSchedule').value,
-            workingHours: parseFloat(document.getElementById('empWorkingHours').value),
-            notes: ''
-        };
-        
-        // Валідація
-        if (!formData.tabNumber || !formData.fullName || !formData.position) {
-            alert('Заповніть обов\'язкові поля: табельний номер, ПІБ та посаду');
-            return;
-        }
-        
-        // Перевіряємо унікальність табельного номера
-        if (this.employees.some(emp => emp.tabNumber === formData.tabNumber)) {
-            alert('Співробітник з таким табельним номером вже існує');
-            return;
-        }
-        
-        this.employees.push(formData);
-        this.saveDataToStorage();
-        this.updateSummaryInfo();
-        this.generateTimesheet();
-        this.hideEmployeeModal();
-        
-        // Показуємо повідомлення про успішне додавання
-        this.showNotification(`Співробітника "${formData.fullName}" додано до табеля`, 'success');
-    }
-    
-    fillWorkingDays() {
-        if (this.employees.length === 0) {
-            alert('Спочатку додайте співробітників');
-            return;
-        }
-        
-        const confirmed = confirm('Заповнити всі робочі дні позначкою "Я" (Явка)? Це замінить існуючі дані для робочих днів.');
-        if (!confirmed) return;
-        
-        this.employees.forEach((employee, empIndex) => {
-            this.workingDays.forEach(day => {
-                const cell = document.getElementById(`cell-${empIndex}-${day}`);
-                if (cell) {
-                    this.setCellCode(cell, 'Я');
-                }
-            });
-        });
-        
-        this.showNotification('Робочі дні заповнено', 'success');
-    }
-    
-    calculateTotals() {
-        let totalWorkingDays = 0;
-        let totalWorkingHours = 0;
-        let totalAbsences = 0;
-        
-        const daysInMonth = new Date(this.currentYear, this.currentMonth + 1, 0).getDate();
-        
-        this.employees.forEach((employee) => {
-            const summary = this.calculateEmployeeSummary(employee, daysInMonth);
-            totalWorkingDays += summary.workingDays;
-            totalWorkingHours += summary.workingHours;
-            totalAbsences += summary.absences;
-        });
-        
-        const message = `
-            Підсумок за ${this.getMonthName(this.currentMonth)} ${this.currentYear}:
-            
-            Загальна кількість відпрацьованих днів: ${totalWorkingDays}
-            Загальна кількість відпрацьованих годин: ${totalWorkingHours}
-            Загальна кількість неявок: ${totalAbsences}
-            Середня кількість годин на співробітника: ${this.employees.length > 0 ? Math.round(totalWorkingHours / this.employees.length) : 0}
-        `;
-        
-        alert(message);
-    }
-    
-    exportToExcel() {
-        if (this.employees.length === 0) {
-            alert('Немає даних для експорту');
-            return;
-        }
-        
+    /**
+     * Ініціалізація модуля
+     */
+    async init() {
         try {
-            const wb = XLSX.utils.book_new();
-            const ws_data = this.prepareDataForExport();
-            const ws = XLSX.utils.aoa_to_sheet(ws_data);
+            // Отримуємо доступ до бази даних
+            this.database = hrDatabase || await initializeDatabase();
             
-            // Налаштування ширини колонок
-            const colWidths = [
-                { wch: 5 },  // № п/п
-                { wch: 12 }, // Табельний номер
-                { wch: 25 }, // ПІБ
-            ];
+            // Завантажуємо дані
+            await this.loadData();
             
-            // Ширина для днів місяця
-            const daysInMonth = new Date(this.currentYear, this.currentMonth + 1, 0).getDate();
-            for (let i = 0; i < daysInMonth; i++) {
-                colWidths.push({ wch: 3 });
-            }
+            // Налаштовуємо обробники подій
+            this.bindEvents();
             
-            // Ширина для підсумкових колонок
-            colWidths.push({ wch: 12 }, { wch: 12 }, { wch: 8 }, { wch: 20 });
+            // Встановлюємо поточний період
+            this.updatePeriodControls();
             
-            ws['!cols'] = colWidths;
-            
-            XLSX.utils.book_append_sheet(wb, ws, 'Табель');
-            
-            const fileName = `Табель_${this.getMonthName(this.currentMonth)}_${this.currentYear}.xlsx`;
-            XLSX.writeFile(wb, fileName);
-            
-            this.showNotification('Табель експортовано в Excel', 'success');
+            console.log('Модуль табеля 1С формату ініціалізовано');
             
         } catch (error) {
-            console.error('Помилка експорту:', error);
-            alert('Помилка експорту в Excel');
+            console.error('Помилка ініціалізації модуля табеля 1С:', error);
+            this.showNotification('Помилка ініціалізації: ' + error.message, 'error');
         }
     }
     
-    prepareDataForExport() {
-        const daysInMonth = new Date(this.currentYear, this.currentMonth + 1, 0).getDate();
-        const data = [];
-        
-        // Заголовок документа
-        data.push([`ТАБЕЛЬ ОБЛІКУ РОБОЧОГО ЧАСУ за ${this.getMonthName(this.currentMonth)} ${this.currentYear} року`]);
-        data.push([]);
-        
-        // Заголовки таблиці
-        const headers1 = ['№ п/п', 'Табельний номер', 'Прізвище, ім\'я, по батькові'];
-        for (let day = 1; day <= daysInMonth; day++) {
-            headers1.push(day.toString());
-        }
-        headers1.push('Відпрацьовано днів', 'Відпрацьовано годин', 'Неявки', 'Примітки');
-        data.push(headers1);
-        
-        // Дані співробітників
-        this.employees.forEach((employee, index) => {
-            const row = [index + 1, employee.tabNumber, employee.fullName];
+    /**
+     * Налаштування обробників подій
+     */
+    bindEvents() {
+        // Генерація табеля
+        document.getElementById('generateTimesheet')?.addEventListener('click', () => {
+            this.openGenerateModal();
+        });
+
+        // Пошук співробітника
+        document.getElementById('addEmployeeBtn')?.addEventListener('click', () => {
+            this.openEmployeeSearchModal();
+        });
+
+        // Заповнення робочих днів
+        document.getElementById('fillWorkingDays')?.addEventListener('click', () => {
+            this.fillWorkingDays();
+        });
+
+        // Підрахунок підсумків
+        document.getElementById('calculateTotals')?.addEventListener('click', () => {
+            this.calculateTotals();
+        });
+
+        // Експорт в Excel
+        document.getElementById('exportExcel')?.addEventListener('click', () => {
+            this.exportToExcel();
+        });
+
+        // Друк
+        document.getElementById('printTimesheet')?.addEventListener('click', () => {
+            this.printTimesheet();
+        });
+
+        // Модальні вікна
+        this.bindModalEvents();
+
+        // Зміна періоду
+        document.getElementById('periodMonth')?.addEventListener('change', () => {
+            this.updateCurrentPeriod();
+        });
+
+        document.getElementById('periodYear')?.addEventListener('change', () => {
+            this.updateCurrentPeriod();
+        });
+    }
+    
+    /**
+     * Завантаження даних з бази
+     */
+    async loadData() {
+        try {
+            // Завантажуємо співробітників
+            this.employees = await this.database.getAll('employees');
             
-            // Дані по днях
-            for (let day = 1; day <= daysInMonth; day++) {
-                const cellData = this.getSavedCellData(employee.tabNumber, day);
-                row.push(cellData ? cellData.code : '');
+            // Завантажуємо підрозділи
+            this.departments = await this.database.getAll('departments');
+            
+            // Завантажуємо табель для поточного періоду
+            await this.loadTimesheetData();
+            
+            // Оновлюємо вкладки підрозділів
+            this.updateDepartmentTabs();
+            
+        } catch (error) {
+            console.error('Помилка завантаження даних:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Завантаження даних табеля для поточного періоду
+     */
+    async loadTimesheetData() {
+        const monthYear = `${this.currentPeriod.year}-${String(this.currentPeriod.month + 1).padStart(2, '0')}`;
+        const timesheetRecords = await this.database.findByIndex('timesheet', 'monthYear', monthYear);
+        
+        this.timesheetData.clear();
+        
+        timesheetRecords.forEach(record => {
+            if (!this.timesheetData.has(record.employeeId)) {
+                this.timesheetData.set(record.employeeId, new Map());
             }
             
-            // Підсумки
-            const summary = this.calculateEmployeeSummary(employee, daysInMonth);
-            row.push(summary.workingDays, summary.workingHours, summary.absences, employee.notes || '');
-            
-            data.push(row);
+            const employeeData = this.timesheetData.get(record.employeeId);
+            employeeData.set(record.date, {
+                code: record.workCode || 'Я',
+                hours: record.hoursWorked || 0
+            });
         });
-        
-        return data;
     }
     
+    /**
+     * Налаштування подій модальних вікон
+     */
+    bindModalEvents() {
+        // Модальне вікно пошуку співробітника
+        document.getElementById('closeSearchModal')?.addEventListener('click', () => {
+            this.closeModal('employeeSearchModal');
+        });
+
+        document.getElementById('cancelSearch')?.addEventListener('click', () => {
+            this.closeModal('employeeSearchModal');
+        });
+
+        document.getElementById('searchEmployeeBtn')?.addEventListener('click', () => {
+            this.searchEmployees();
+        });
+
+        document.getElementById('employeeSearchInput')?.addEventListener('input', (e) => {
+            if (e.target.value.length >= 2) {
+                this.searchEmployees();
+            }
+        });
+
+        document.getElementById('addSelectedEmployees')?.addEventListener('click', () => {
+            this.addSelectedEmployeesToTimesheet();
+        });
+
+        // Модальне вікно генерації табеля
+        document.getElementById('closeGenerateModal')?.addEventListener('click', () => {
+            this.closeModal('generateTimesheetModal');
+        });
+
+        document.getElementById('cancelGenerate')?.addEventListener('click', () => {
+            this.closeModal('generateTimesheetModal');
+        });
+
+        document.getElementById('confirmGenerate')?.addEventListener('click', () => {
+            this.generateTimesheet();
+        });
+
+        // Фільтри пошуку
+        document.getElementById('searchDepartmentFilter')?.addEventListener('change', () => {
+            this.searchEmployees();
+        });
+
+        document.getElementById('searchStatusFilter')?.addEventListener('change', () => {
+            this.searchEmployees();
+        });
+
+        // Автоматичні опції генерації
+        document.querySelectorAll('#generateTimesheetModal input[type="checkbox"]').forEach(checkbox => {
+            checkbox.addEventListener('change', () => {
+                this.updateEstimatedCount();
+            });
+        });
+
+        document.getElementById('generateMonth')?.addEventListener('change', () => {
+            this.updateEstimatedCount();
+        });
+
+        document.getElementById('generateYear')?.addEventListener('change', () => {
+            this.updateEstimatedCount();
+        });
+    }
+
+    /**
+     * Оновлення вкладок підрозділів
+     */
+    updateDepartmentTabs() {
+        const tabsContainer = document.querySelector('#departmentsTabs .tabs-header');
+        if (!tabsContainer) return;
+
+        // Очищуємо існуючі вкладки (крім "Всі співробітники")
+        const allTabs = tabsContainer.querySelectorAll('.tab-btn:not([data-department="all"])');
+        allTabs.forEach(tab => tab.remove());
+
+        // Додаємо вкладки для кожного підрозділу
+        this.departments.forEach(dept => {
+            const employeeCount = this.employees.filter(emp => emp.departmentId === dept.id).length;
+            
+            const tabButton = document.createElement('button');
+            tabButton.className = 'tab-btn';
+            tabButton.dataset.department = dept.id;
+            tabButton.innerHTML = `
+                <i class="fas fa-building"></i> ${dept.name}
+                <span class="employee-count">${employeeCount}</span>
+            `;
+            
+            tabButton.addEventListener('click', () => {
+                this.switchDepartment(dept.id);
+            });
+            
+            tabsContainer.appendChild(tabButton);
+        });
+
+        // Обробник для вкладки "Всі співробітники"
+        document.querySelector('[data-department="all"]')?.addEventListener('click', () => {
+            this.switchDepartment('all');
+        });
+    }
+
+    /**
+     * Перемикання підрозділу
+     */
+    switchDepartment(departmentId) {
+        this.currentDepartment = departmentId;
+        
+        // Оновлюємо активну вкладку
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.classList.remove('active');
+        });
+        document.querySelector(`[data-department="${departmentId}"]`)?.classList.add('active');
+        
+        // Оновлюємо інформацію про поточний підрозділ
+        this.updateCurrentDepartmentInfo();
+        
+        // Перегенеруємо таблицю
+        this.renderTimesheetTable();
+    }
+
+    /**
+     * Оновлення інформації про поточний підрозділ
+     */
+    updateCurrentDepartmentInfo() {
+        const nameElement = document.getElementById('currentDepartmentName');
+        const countElement = document.getElementById('departmentEmployeeCount');
+        const workDaysElement = document.getElementById('departmentWorkDays');
+
+        if (this.currentDepartment === 'all') {
+            nameElement.textContent = 'Всі співробітники';
+            countElement.textContent = this.employees.length;
+        } else {
+            const department = this.departments.find(d => d.id === this.currentDepartment);
+            const deptEmployees = this.employees.filter(emp => emp.departmentId === this.currentDepartment);
+            
+            nameElement.textContent = department ? department.name : 'Невідомий підрозділ';
+            countElement.textContent = deptEmployees.length;
+        }
+        
+        // Підрахунок робочих днів у місяці
+        const workDays = this.getWorkingDaysInMonth(this.currentPeriod.year, this.currentPeriod.month);
+        workDaysElement.textContent = workDays;
+    }
+    
+    /**
+     * Відкриття модального вікна генерації табеля
+     */
+    openGenerateModal() {
+        // Заповнюємо поточний період
+        document.getElementById('generateMonth').value = this.currentPeriod.month;
+        document.getElementById('generateYear').value = this.currentPeriod.year;
+        
+        // Заповнюємо підрозділи
+        this.updateDepartmentCheckboxes();
+        
+        // Оновлюємо оцінку кількості
+        this.updateEstimatedCount();
+        
+        this.showModal('generateTimesheetModal');
+    }
+
+    /**
+     * Оновлення списку підрозділів для вибору
+     */
+    updateDepartmentCheckboxes() {
+        const container = document.getElementById('departmentCheckboxes');
+        if (!container) return;
+
+        container.innerHTML = '';
+        
+        this.departments.forEach(dept => {
+            const employeeCount = this.employees.filter(emp => emp.departmentId === dept.id).length;
+            
+            const checkbox = document.createElement('label');
+            checkbox.innerHTML = `
+                <input type="checkbox" value="${dept.id}" checked>
+                ${dept.name} (${employeeCount} співр.)
+            `;
+            
+            checkbox.querySelector('input').addEventListener('change', () => {
+                this.updateEstimatedCount();
+            });
+            
+            container.appendChild(checkbox);
+        });
+    }
+
+    /**
+     * Оновлення оціночної кількості співробітників
+     */
+    async updateEstimatedCount() {
+        try {
+            const month = parseInt(document.getElementById('generateMonth')?.value || this.currentPeriod.month);
+            const year = parseInt(document.getElementById('generateYear')?.value || this.currentPeriod.year);
+            
+            const includeActive = document.getElementById('includeActiveEmployees')?.checked;
+            const includeWorked = document.getElementById('includeWorkedInPeriod')?.checked;
+            const includeInactive = document.getElementById('includeInactiveEmployees')?.checked;
+            
+            const selectedDepts = Array.from(document.querySelectorAll('#departmentCheckboxes input:checked'))
+                .map(cb => parseInt(cb.value));
+            
+            let estimatedEmployees = new Set();
+            
+            // Активні співробітники
+            if (includeActive) {
+                this.employees
+                    .filter(emp => emp.status === 'active' && selectedDepts.includes(emp.departmentId))
+                    .forEach(emp => estimatedEmployees.add(emp.id));
+            }
+            
+            // Співробітники, що працювали в періоді
+            if (includeWorked) {
+                const monthYear = `${year}-${String(month + 1).padStart(2, '0')}`;
+                const timesheetRecords = await this.database.findByIndex('timesheet', 'monthYear', monthYear);
+                
+                timesheetRecords.forEach(record => {
+                    const employee = this.employees.find(emp => emp.id === record.employeeId);
+                    if (employee && selectedDepts.includes(employee.departmentId)) {
+                        estimatedEmployees.add(employee.id);
+                    }
+                });
+            }
+            
+            // Неактивні співробітники
+            if (includeInactive) {
+                this.employees
+                    .filter(emp => emp.status === 'inactive' && selectedDepts.includes(emp.departmentId))
+                    .forEach(emp => estimatedEmployees.add(emp.id));
+            }
+            
+            document.getElementById('estimatedCount').textContent = estimatedEmployees.size;
+            
+        } catch (error) {
+            console.error('Помилка оновлення оціночної кількості:', error);
+        }
+    }
+
+    /**
+     * Генерація табеля
+     */
+    async generateTimesheet() {
+        try {
+            const month = parseInt(document.getElementById('generateMonth').value);
+            const year = parseInt(document.getElementById('generateYear').value);
+            
+            const includeActive = document.getElementById('includeActiveEmployees').checked;
+            const includeWorked = document.getElementById('includeWorkedInPeriod').checked;
+            const includeInactive = document.getElementById('includeInactiveEmployees').checked;
+            
+            const selectedDepts = Array.from(document.querySelectorAll('#departmentCheckboxes input:checked'))
+                .map(cb => parseInt(cb.value));
+            
+            let employeesToInclude = new Set();
+            
+            // Додаємо співробітників за критеріями
+            if (includeActive) {
+                this.employees
+                    .filter(emp => emp.status === 'active' && selectedDepts.includes(emp.departmentId))
+                    .forEach(emp => employeesToInclude.add(emp.id));
+            }
+            
+            if (includeWorked) {
+                const monthYear = `${year}-${String(month + 1).padStart(2, '0')}`;
+                const timesheetRecords = await this.database.findByIndex('timesheet', 'monthYear', monthYear);
+                
+                timesheetRecords.forEach(record => {
+                    const employee = this.employees.find(emp => emp.id === record.employeeId);
+                    if (employee && selectedDepts.includes(employee.departmentId)) {
+                        employeesToInclude.add(employee.id);
+                    }
+                });
+            }
+            
+            if (includeInactive) {
+                this.employees
+                    .filter(emp => emp.status === 'inactive' && selectedDepts.includes(emp.departmentId))
+                    .forEach(emp => employeesToInclude.add(emp.id));
+            }
+            
+            // Оновлюємо період
+            this.currentPeriod = { month, year };
+            this.updatePeriodControls();
+            
+            // Завантажуємо дані табеля для нового періоду
+            await this.loadTimesheetData();
+            
+            // Генеруємо таблицю для відібраних співробітників
+            await this.renderTimesheetTable(Array.from(employeesToInclude));
+            
+            this.closeModal('generateTimesheetModal');
+            this.showNotification(`Табель згенеровано для ${employeesToInclude.size} співробітників`, 'success');
+            
+        } catch (error) {
+            console.error('Помилка генерації табеля:', error);
+            this.showNotification('Помилка генерації: ' + error.message, 'error');
+        }
+    }
+
+    /**
+     * Відкриття модального вікна пошуку співробітника
+     */
+    openEmployeeSearchModal() {
+        // Заповнюємо фільтр підрозділів
+        this.updateSearchDepartmentFilter();
+        
+        // Очищуємо попередні результати
+        document.getElementById('searchResults').innerHTML = `
+            <div class="no-results">
+                <i class="fas fa-search"></i>
+                <p>Введіть дані для пошуку співробітника</p>
+            </div>
+        `;
+        
+        document.getElementById('employeeSearchInput').value = '';
+        this.selectedEmployees.clear();
+        this.updateSelectedCount();
+        
+        this.showModal('employeeSearchModal');
+    }
+
+    /**
+     * Оновлення фільтру підрозділів у пошуку
+     */
+    updateSearchDepartmentFilter() {
+        const select = document.getElementById('searchDepartmentFilter');
+        if (!select) return;
+
+        // Очищуємо існуючі опції (крім "Всі підрозділи")
+        const existingOptions = select.querySelectorAll('option:not([value=""])');
+        existingOptions.forEach(option => option.remove());
+
+        // Додаємо опції для кожного підрозділу
+        this.departments.forEach(dept => {
+            const option = document.createElement('option');
+            option.value = dept.id;
+            option.textContent = dept.name;
+            select.appendChild(option);
+        });
+    }
+
+    /**
+     * Пошук співробітників
+     */
+    async searchEmployees() {
+        try {
+            const searchTerm = document.getElementById('employeeSearchInput').value.toLowerCase();
+            const departmentFilter = document.getElementById('searchDepartmentFilter').value;
+            const statusFilter = document.getElementById('searchStatusFilter').value;
+            
+            let filteredEmployees = [...this.employees];
+            
+            // Фільтр за пошуковим терміном
+            if (searchTerm) {
+                filteredEmployees = filteredEmployees.filter(emp => 
+                    emp.fullName.toLowerCase().includes(searchTerm) ||
+                    emp.personnelNumber.toLowerCase().includes(searchTerm) ||
+                    (emp.position && emp.position.toLowerCase().includes(searchTerm))
+                );
+            }
+            
+            // Фільтр за підрозділом
+            if (departmentFilter) {
+                filteredEmployees = filteredEmployees.filter(emp => 
+                    emp.departmentId === parseInt(departmentFilter)
+                );
+            }
+            
+            // Фільтр за статусом
+            if (statusFilter !== 'all') {
+                if (statusFilter === 'active') {
+                    filteredEmployees = filteredEmployees.filter(emp => emp.status === 'active');
+                } else if (statusFilter === 'inactive') {
+                    filteredEmployees = filteredEmployees.filter(emp => emp.status === 'inactive');
+                } else if (statusFilter === 'worked') {
+                    // Співробітники, що працювали в поточному періоді
+                    const monthYear = `${this.currentPeriod.year}-${String(this.currentPeriod.month + 1).padStart(2, '0')}`;
+                    const timesheetRecords = await this.database.findByIndex('timesheet', 'monthYear', monthYear);
+                    const workedEmployeeIds = new Set(timesheetRecords.map(r => r.employeeId));
+                    
+                    filteredEmployees = filteredEmployees.filter(emp => 
+                        workedEmployeeIds.has(emp.id)
+                    );
+                }
+            }
+            
+            this.renderSearchResults(filteredEmployees);
+            
+        } catch (error) {
+            console.error('Помилка пошуку співробітників:', error);
+            this.showNotification('Помилка пошуку: ' + error.message, 'error');
+        }
+    }
+
+    /**
+     * Відображення результатів пошуку
+     */
+    renderSearchResults(employees) {
+        const container = document.getElementById('searchResults');
+        
+        if (employees.length === 0) {
+            container.innerHTML = `
+                <div class="no-results">
+                    <i class="fas fa-user-slash"></i>
+                    <p>Співробітників не знайдено</p>
+                </div>
+            `;
+            return;
+        }
+        
+        const resultsHTML = employees.map(emp => {
+            const department = this.departments.find(d => d.id === emp.departmentId);
+            const isSelected = this.selectedEmployees.has(emp.id);
+            
+            return `
+                <div class="search-result-item ${isSelected ? 'selected' : ''}" data-employee-id="${emp.id}">
+                    <div class="employee-checkbox">
+                        <input type="checkbox" ${isSelected ? 'checked' : ''} onchange="timesheet1c.toggleEmployeeSelection(${emp.id})">
+                    </div>
+                    <div class="employee-info">
+                        <div class="employee-name">${emp.fullName}</div>
+                        <div class="employee-details">
+                            <span class="personnel-number">№${emp.personnelNumber}</span>
+                            <span class="department">${department ? department.name : 'Невідомий підрозділ'}</span>
+                            <span class="position">${emp.position || 'Не вказано'}</span>
+                            <span class="status ${emp.status}">${emp.status === 'active' ? 'Активний' : 'Неактивний'}</span>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+        
+        container.innerHTML = `<div class="search-results-list">${resultsHTML}</div>`;
+    }
+
+    /**
+     * Перемикання вибору співробітника
+     */
+    toggleEmployeeSelection(employeeId) {
+        if (this.selectedEmployees.has(employeeId)) {
+            this.selectedEmployees.delete(employeeId);
+        } else {
+            this.selectedEmployees.add(employeeId);
+        }
+        
+        this.updateSelectedCount();
+        
+        // Оновлюємо візуальний стан
+        const item = document.querySelector(`[data-employee-id="${employeeId}"]`);
+        if (item) {
+            item.classList.toggle('selected', this.selectedEmployees.has(employeeId));
+        }
+    }
+
+    /**
+     * Оновлення лічильника вибраних співробітників
+     */
+    updateSelectedCount() {
+        document.getElementById('selectedCount').textContent = this.selectedEmployees.size;
+        document.getElementById('addSelectedEmployees').disabled = this.selectedEmployees.size === 0;
+    }
+
+    /**
+     * Додавання вибраних співробітників до табеля
+     */
+    addSelectedEmployeesToTimesheet() {
+        if (this.selectedEmployees.size === 0) return;
+        
+        this.closeModal('employeeSearchModal');
+        
+        // Перегенеруємо таблицю з урахуванням нових співробітників
+        this.renderTimesheetTable();
+        
+        this.showNotification(`Додано ${this.selectedEmployees.size} співробітників до табеля`, 'success');
+        this.selectedEmployees.clear();
+    }
+
+    /**
+     * Генерація таблиці табеля
+     */
+    async renderTimesheetTable(specificEmployeeIds = null) {
+        try {
+            const table = document.getElementById('timesheetTable');
+            if (!table) return;
+            
+            // Отримуємо співробітників для відображення
+            let employeesToShow = this.employees;
+            
+            if (specificEmployeeIds) {
+                employeesToShow = this.employees.filter(emp => specificEmployeeIds.includes(emp.id));
+            } else if (this.currentDepartment !== 'all') {
+                employeesToShow = this.employees.filter(emp => emp.departmentId === this.currentDepartment);
+            }
+            
+            // Сортуємо за ПІБ
+            employeesToShow.sort((a, b) => a.fullName.localeCompare(b.fullName));
+            
+            // Генеруємо заголовок таблиці
+            const headerHTML = this.generateTableHeader();
+            
+            // Генеруємо рядки співробітників
+            const rowsHTML = employeesToShow.map(emp => this.generateEmployeeRow(emp)).join('');
+            
+            // Генеруємо підсумковий рядок
+            const summaryHTML = this.generateSummaryRow(employeesToShow);
+            
+            table.innerHTML = `
+                ${headerHTML}
+                ${rowsHTML}
+                ${summaryHTML}
+            `;
+            
+            // Оновлюємо статистику
+            this.updateCurrentDepartmentInfo();
+            this.updateTotalEmployees(employeesToShow.length);
+            
+        } catch (error) {
+            console.error('Помилка генерації таблиці:', error);
+            this.showNotification('Помилка відображення табеля: ' + error.message, 'error');
+        }
+    }
+
+    /**
+     * Генерація заголовка таблиці
+     */
+    generateTableHeader() {
+        const daysInMonth = new Date(this.currentPeriod.year, this.currentPeriod.month + 1, 0).getDate();
+        
+        let daysHTML = '';
+        for (let day = 1; day <= daysInMonth; day++) {
+            const date = new Date(this.currentPeriod.year, this.currentPeriod.month, day);
+            const dayOfWeek = date.getDay();
+            const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+            
+            daysHTML += `
+                <th class="day-cell ${isWeekend ? 'weekend' : ''}" data-day="${day}">
+                    <div class="day-number">${day}</div>
+                    <div class="day-name">${this.getDayName(dayOfWeek)}</div>
+                </th>
+            `;
+        }
+        
+        return `
+            <thead>
+                <tr>
+                    <th class="employee-header" rowspan="2">
+                        <div>ПІБ / Підрозділ</div>
+                    </th>
+                    <th class="personnel-number-header" rowspan="2">
+                        <div>Таб. №</div>
+                    </th>
+                    ${daysHTML}
+                    <th class="summary-header" rowspan="2">
+                        <div>Всього</div>
+                    </th>
+                </tr>
+            </thead>
+        `;
+    }
+
+    /**
+     * Генерація рядка співробітника
+     */
+    generateEmployeeRow(employee) {
+        const daysInMonth = new Date(this.currentPeriod.year, this.currentPeriod.month + 1, 0).getDate();
+        const department = this.departments.find(d => d.id === employee.departmentId);
+        
+        let daysCells = '';
+        let totalHours = 0;
+        let totalDays = 0;
+        
+        for (let day = 1; day <= daysInMonth; day++) {
+            const dateStr = `${this.currentPeriod.year}-${String(this.currentPeriod.month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+            const employeeData = this.timesheetData.get(employee.id);
+            const dayData = employeeData ? employeeData.get(dateStr) : null;
+            
+            const code = dayData ? dayData.code : '';
+            const hours = dayData ? dayData.hours : 0;
+            
+            if (code === 'Я' && hours > 0) {
+                totalHours += hours;
+                totalDays++;
+            }
+            
+            const date = new Date(this.currentPeriod.year, this.currentPeriod.month, day);
+            const isWeekend = date.getDay() === 0 || date.getDay() === 6;
+            
+            daysCells += `
+                <td class="day-data-cell ${isWeekend ? 'weekend' : ''}" data-employee-id="${employee.id}" data-day="${day}" onclick="timesheet1c.editDay(${employee.id}, ${day})">
+                    <div class="work-code">${code}</div>
+                    <div class="work-hours">${hours > 0 ? hours : ''}</div>
+                </td>
+            `;
+        }
+        
+        return `
+            <tr class="employee-row" data-employee-id="${employee.id}">
+                <td class="employee-name-cell">
+                    <div class="employee-name">${employee.fullName}</div>
+                    <div class="employee-department">${department ? department.name : 'Невідомий підрозділ'}</div>
+                </td>
+                <td class="personnel-number-cell">${employee.personnelNumber}</td>
+                ${daysCells}
+                <td class="summary-cell">
+                    <div class="total-days">${totalDays}</div>
+                    <div class="total-hours">${totalHours}г</div>
+                </td>
+            </tr>
+        `;
+    }
+
+    /**
+     * Генерація підсумкового рядка
+     */
+    generateSummaryRow(employees) {
+        const daysInMonth = new Date(this.currentPeriod.year, this.currentPeriod.month + 1, 0).getDate();
+        
+        let daysSummary = '';
+        let totalEmployeeDays = 0;
+        let totalEmployeeHours = 0;
+        
+        for (let day = 1; day <= daysInMonth; day++) {
+            let dayEmployees = 0;
+            let dayHours = 0;
+            
+            employees.forEach(emp => {
+                const dateStr = `${this.currentPeriod.year}-${String(this.currentPeriod.month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                const employeeData = this.timesheetData.get(emp.id);
+                const dayData = employeeData ? employeeData.get(dateStr) : null;
+                
+                if (dayData && dayData.code === 'Я' && dayData.hours > 0) {
+                    dayEmployees++;
+                    dayHours += dayData.hours;
+                }
+            });
+            
+            totalEmployeeDays += dayEmployees;
+            totalEmployeeHours += dayHours;
+            
+            const date = new Date(this.currentPeriod.year, this.currentPeriod.month, day);
+            const isWeekend = date.getDay() === 0 || date.getDay() === 6;
+            
+            daysSummary += `
+                <td class="summary-day-cell ${isWeekend ? 'weekend' : ''}">
+                    <div class="day-employees">${dayEmployees}</div>
+                    <div class="day-total-hours">${dayHours}г</div>
+                </td>
+            `;
+        }
+        
+        return `
+            <tr class="summary-row">
+                <td class="summary-label" colspan="2">
+                    <strong>Всього по підрозділу:</strong>
+                </td>
+                ${daysSummary}
+                <td class="grand-summary-cell">
+                    <div class="grand-total-days"><strong>${totalEmployeeDays}</strong></div>
+                    <div class="grand-total-hours"><strong>${totalEmployeeHours}г</strong></div>
+                </td>
+            </tr>
+        `;
+    }
+
+    /**
+     * Редагування дня для співробітника
+     */
+    editDay(employeeId, day) {
+        const employee = this.employees.find(emp => emp.id === employeeId);
+        if (!employee) return;
+        
+        const dateStr = `${this.currentPeriod.year}-${String(this.currentPeriod.month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+        const employeeData = this.timesheetData.get(employeeId);
+        const dayData = employeeData ? employeeData.get(dateStr) : null;
+        
+        const currentCode = dayData ? dayData.code : '';
+        const currentHours = dayData ? dayData.hours : 0;
+        
+        // Створюємо простий інлайн редактор
+        const cell = document.querySelector(`[data-employee-id="${employeeId}"][data-day="${day}"]`);
+        if (!cell) return;
+        
+        // Створюємо форму редагування
+        const form = document.createElement('div');
+        form.className = 'inline-edit-form';
+        form.innerHTML = `
+            <select class="code-select">
+                ${Object.entries(this.workCodes).map(([code, desc]) => 
+                    `<option value="${code}" ${code === currentCode ? 'selected' : ''}>${code}</option>`
+                ).join('')}
+            </select>
+            <input type="number" class="hours-input" value="${currentHours}" min="0" max="24" step="0.5">
+            <button type="button" class="save-btn" onclick="timesheet1c.saveDayEdit(${employeeId}, ${day})">✓</button>
+            <button type="button" class="cancel-btn" onclick="timesheet1c.cancelDayEdit(${employeeId}, ${day})">✕</button>
+        `;
+        
+        // Зберігаємо оригінальний контент
+        cell.dataset.originalContent = cell.innerHTML;
+        cell.innerHTML = '';
+        cell.appendChild(form);
+        
+        // Фокусуємо на першому полі
+        form.querySelector('.code-select').focus();
+    }
+
+    /**
+     * Збереження редагування дня
+     */
+    async saveDayEdit(employeeId, day) {
+        try {
+            const cell = document.querySelector(`[data-employee-id="${employeeId}"][data-day="${day}"]`);
+            if (!cell) return;
+            
+            const form = cell.querySelector('.inline-edit-form');
+            const code = form.querySelector('.code-select').value;
+            const hours = parseFloat(form.querySelector('.hours-input').value) || 0;
+            
+            const dateStr = `${this.currentPeriod.year}-${String(this.currentPeriod.month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+            const monthYear = `${this.currentPeriod.year}-${String(this.currentPeriod.month + 1).padStart(2, '0')}`;
+            
+            // Зберігаємо в базу даних
+            const existingRecords = await this.database.findByIndex('timesheet', 'employeeId', employeeId);
+            const existingRecord = existingRecords.find(r => r.date === dateStr);
+            
+            const recordData = {
+                employeeId: employeeId,
+                date: dateStr,
+                monthYear: monthYear,
+                workCode: code,
+                hoursWorked: hours,
+                updatedAt: new Date().toISOString()
+            };
+            
+            if (existingRecord) {
+                recordData.id = existingRecord.id;
+                await this.database.update('timesheet', recordData);
+            } else {
+                recordData.createdAt = new Date().toISOString();
+                await this.database.add('timesheet', recordData);
+            }
+            
+            // Оновлюємо локальні дані
+            if (!this.timesheetData.has(employeeId)) {
+                this.timesheetData.set(employeeId, new Map());
+            }
+            this.timesheetData.get(employeeId).set(dateStr, { code, hours });
+            
+            // Перегенеруємо таблицю
+            await this.renderTimesheetTable();
+            
+        } catch (error) {
+            console.error('Помилка збереження:', error);
+            this.showNotification('Помилка збереження: ' + error.message, 'error');
+            this.cancelDayEdit(employeeId, day);
+        }
+    }
+
+    /**
+     * Скасування редагування дня
+     */
+    cancelDayEdit(employeeId, day) {
+        const cell = document.querySelector(`[data-employee-id="${employeeId}"][data-day="${day}"]`);
+        if (!cell) return;
+        
+        const originalContent = cell.dataset.originalContent;
+        if (originalContent) {
+            cell.innerHTML = originalContent;
+            delete cell.dataset.originalContent;
+        }
+    }
+
+    /**
+     * Заповнення робочих днів
+     */
+    async fillWorkingDays() {
+        try {
+            const confirmation = confirm('Заповнити всі робочі дні кодом "Я" та 8 годинами для всіх відображених співробітників?');
+            if (!confirmation) return;
+            
+            const daysInMonth = new Date(this.currentPeriod.year, this.currentPeriod.month + 1, 0).getDate();
+            const monthYear = `${this.currentPeriod.year}-${String(this.currentPeriod.month + 1).padStart(2, '0')}`;
+            
+            // Отримуємо співробітників для поточного підрозділу
+            let employeesToFill = this.employees;
+            if (this.currentDepartment !== 'all') {
+                employeesToFill = this.employees.filter(emp => emp.departmentId === this.currentDepartment);
+            }
+            
+            let updatedRecords = 0;
+            
+            for (const employee of employeesToFill) {
+                for (let day = 1; day <= daysInMonth; day++) {
+                    const date = new Date(this.currentPeriod.year, this.currentPeriod.month, day);
+                    const isWeekend = date.getDay() === 0 || date.getDay() === 6;
+                    
+                    // Пропускаємо вихідні
+                    if (isWeekend) continue;
+                    
+                    const dateStr = `${this.currentPeriod.year}-${String(this.currentPeriod.month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                    
+                    // Перевіряємо, чи вже є запис
+                    const existingRecords = await this.database.findByIndex('timesheet', 'employeeId', employee.id);
+                    const existingRecord = existingRecords.find(r => r.date === dateStr);
+                    
+                    const recordData = {
+                        employeeId: employee.id,
+                        date: dateStr,
+                        monthYear: monthYear,
+                        workCode: 'Я',
+                        hoursWorked: 8,
+                        updatedAt: new Date().toISOString()
+                    };
+                    
+                    if (existingRecord) {
+                        recordData.id = existingRecord.id;
+                        await this.database.update('timesheet', recordData);
+                    } else {
+                        recordData.createdAt = new Date().toISOString();
+                        await this.database.add('timesheet', recordData);
+                    }
+                    
+                    updatedRecords++;
+                }
+            }
+            
+            // Перезавантажуємо дані та перегенеруємо таблицю
+            await this.loadTimesheetData();
+            await this.renderTimesheetTable();
+            
+            this.showNotification(`Заповнено ${updatedRecords} робочих днів`, 'success');
+            
+        } catch (error) {
+            console.error('Помилка заповнення робочих днів:', error);
+            this.showNotification('Помилка заповнення: ' + error.message, 'error');
+        }
+    }
+
+    /**
+     * Підрахунок підсумків
+     */
+    calculateTotals() {
+        // Оновлюємо підсумкову інформацію
+        const workingDays = this.getWorkingDaysInMonth(this.currentPeriod.year, this.currentPeriod.month);
+        const holidays = this.getHolidaysInMonth(this.currentPeriod.year, this.currentPeriod.month);
+        
+        document.getElementById('workingDaysInPeriod').textContent = workingDays;
+        document.getElementById('holidaysInPeriod').textContent = holidays;
+        
+        // Перегенеруємо таблицю для оновлення підсумків
+        this.renderTimesheetTable();
+        
+        this.showNotification('Підсумки оновлено', 'success');
+    }
+
+    /**
+     * Експорт в Excel
+     */
+    exportToExcel() {
+        try {
+            // Підготовка даних для експорту
+            const wb = XLSX.utils.book_new();
+            
+            // Дані заголовка
+            const headerData = [
+                ['ТАБЕЛЬ ОБЛІКУ РОБОЧОГО ЧАСУ'],
+                [`За ${this.getMonthName(this.currentPeriod.month)} ${this.currentPeriod.year} року`],
+                ['Підприємство:', document.getElementById('organizationName').value],
+                ['Код ЄДРПОУ:', document.getElementById('edrpouCode').value],
+                []
+            ];
+            
+            // Заголовки таблиці
+            const daysInMonth = new Date(this.currentPeriod.year, this.currentPeriod.month + 1, 0).getDate();
+            const tableHeader = ['ПІБ', 'Таб. №'];
+            
+            for (let day = 1; day <= daysInMonth; day++) {
+                tableHeader.push(day.toString());
+            }
+            tableHeader.push('Всього');
+            
+            headerData.push(tableHeader);
+            
+            // Дані співробітників
+            let employeesToExport = this.employees;
+            if (this.currentDepartment !== 'all') {
+                employeesToExport = this.employees.filter(emp => emp.departmentId === this.currentDepartment);
+            }
+            
+            employeesToExport.forEach(emp => {
+                const row = [emp.fullName, emp.personnelNumber];
+                
+                let totalHours = 0;
+                for (let day = 1; day <= daysInMonth; day++) {
+                    const dateStr = `${this.currentPeriod.year}-${String(this.currentPeriod.month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                    const employeeData = this.timesheetData.get(emp.id);
+                    const dayData = employeeData ? employeeData.get(dateStr) : null;
+                    
+                    if (dayData) {
+                        row.push(`${dayData.code}${dayData.hours > 0 ? '/' + dayData.hours : ''}`);
+                        if (dayData.code === 'Я') totalHours += dayData.hours;
+                    } else {
+                        row.push('');
+                    }
+                }
+                
+                row.push(totalHours + 'г');
+                headerData.push(row);
+            });
+            
+            // Створюємо робочий лист
+            const ws = XLSX.utils.aoa_to_sheet(headerData);
+            XLSX.utils.book_append_sheet(wb, ws, 'Табель');
+            
+            // Зберігаємо файл
+            const filename = `Табель_${this.currentPeriod.year}_${String(this.currentPeriod.month + 1).padStart(2, '0')}.xlsx`;
+            XLSX.writeFile(wb, filename);
+            
+            this.showNotification('Файл Excel створено', 'success');
+            
+        } catch (error) {
+            console.error('Помилка експорту в Excel:', error);
+            this.showNotification('Помилка експорту: ' + error.message, 'error');
+        }
+    }
+
+    /**
+     * Друк табеля
+     */
     printTimesheet() {
         window.print();
     }
-    
-    updateEmployeeNotes(employeeIndex, notes) {
-        if (this.employees[employeeIndex]) {
-            this.employees[employeeIndex].notes = notes;
-            this.saveDataToStorage();
-        }
+
+    /**
+     * Допоміжні методи
+     */
+    updatePeriodControls() {
+        document.getElementById('periodMonth').value = this.currentPeriod.month;
+        document.getElementById('periodYear').value = this.currentPeriod.year;
     }
-    
-    // Методи збереження та завантаження даних
-    saveDataToStorage() {
-        const data = {
-            employees: this.employees,
-            currentMonth: this.currentMonth,
-            currentYear: this.currentYear,
-            cellData: this.getCellDataFromStorage()
+
+    updateCurrentPeriod() {
+        this.currentPeriod = {
+            month: parseInt(document.getElementById('periodMonth').value),
+            year: parseInt(document.getElementById('periodYear').value)
         };
-        localStorage.setItem('timesheet1c_data', JSON.stringify(data));
+        
+        this.loadTimesheetData().then(() => {
+            this.renderTimesheetTable();
+        });
     }
-    
-    loadSavedData() {
-        try {
-            const saved = localStorage.getItem('timesheet1c_data');
-            if (saved) {
-                const data = JSON.parse(saved);
-                this.employees = data.employees || [];
-                this.currentMonth = data.currentMonth ?? 2;
-                this.currentYear = data.currentYear ?? 2025;
-            }
-        } catch (error) {
-            console.error('Помилка завантаження збережених даних:', error);
-        }
+
+    updateTotalEmployees(count) {
+        document.getElementById('totalEmployees').textContent = count;
     }
-    
-    saveCellData(tabNumber, day, data) {
-        const key = `cell_${tabNumber}_${day}_${this.currentMonth}_${this.currentYear}`;
-        localStorage.setItem(key, JSON.stringify(data));
-    }
-    
-    getSavedCellData(tabNumber, day) {
-        try {
-            const key = `cell_${tabNumber}_${day}_${this.currentMonth}_${this.currentYear}`;
-            const saved = localStorage.getItem(key);
-            return saved ? JSON.parse(saved) : null;
-        } catch (error) {
-            return null;
-        }
-    }
-    
-    getCellDataFromStorage() {
-        const cellData = {};
-        for (let i = 0; i < localStorage.length; i++) {
-            const key = localStorage.key(i);
-            if (key && key.startsWith('cell_')) {
-                cellData[key] = localStorage.getItem(key);
+
+    getWorkingDaysInMonth(year, month) {
+        const daysInMonth = new Date(year, month + 1, 0).getDate();
+        let workingDays = 0;
+        
+        for (let day = 1; day <= daysInMonth; day++) {
+            const date = new Date(year, month, day);
+            const dayOfWeek = date.getDay();
+            if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+                workingDays++;
             }
         }
-        return cellData;
+        
+        return workingDays;
     }
-    
-    // Допоміжні методи
+
+    getHolidaysInMonth(year, month) {
+        // Тут має бути логіка для визначення свят з виробничого календаря
+        // Поки що повертаємо фіксоване значення
+        return 1;
+    }
+
+    getDayName(dayOfWeek) {
+        const names = ['Нд', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
+        return names[dayOfWeek];
+    }
+
     getMonthName(monthIndex) {
-        const months = [
+        const names = [
             'Січень', 'Лютий', 'Березень', 'Квітень', 'Травень', 'Червень',
             'Липень', 'Серпень', 'Вересень', 'Жовтень', 'Листопад', 'Грудень'
         ];
-        return months[monthIndex];
+        return names[monthIndex];
     }
-    
-    showNotification(message, type = 'info') {
-        // Створюємо простий toast notification
-        const toast = document.createElement('div');
-        toast.className = `toast toast-${type}`;
-        toast.style.cssText = `
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            padding: 12px 20px;
-            border-radius: 4px;
-            color: white;
-            font-weight: bold;
-            z-index: 10000;
-            opacity: 0;
-            transition: opacity 0.3s ease;
-        `;
-        
-        switch (type) {
-            case 'success':
-                toast.style.backgroundColor = '#28a745';
-                break;
-            case 'error':
-                toast.style.backgroundColor = '#dc3545';
-                break;
-            case 'warning':
-                toast.style.backgroundColor = '#ffc107';
-                toast.style.color = '#212529';
-                break;
-            default:
-                toast.style.backgroundColor = '#17a2b8';
+
+    showModal(modalId) {
+        const modal = document.getElementById(modalId);
+        if (modal) {
+            modal.classList.add('show');
+            document.body.style.overflow = 'hidden';
         }
-        
-        toast.textContent = message;
-        document.body.appendChild(toast);
-        
-        // Показуємо з анімацією
-        setTimeout(() => toast.style.opacity = '1', 100);
-        
-        // Приховуємо через 3 секунди
-        setTimeout(() => {
-            toast.style.opacity = '0';
-            setTimeout(() => toast.remove(), 300);
-        }, 3000);
+    }
+
+    closeModal(modalId) {
+        const modal = document.getElementById(modalId);
+        if (modal) {
+            modal.classList.remove('show');
+            document.body.style.overflow = '';
+        }
+    }
+
+    showNotification(message, type = 'info') {
+        // Використовуємо глобальну систему повідомлень, якщо доступна
+        if (window.hrSystem) {
+            window.hrSystem.showNotification(message, type);
+        } else {
+            // Простий fallback
+            alert(message);
+        }
     }
 }
 
-// Ініціалізація
-let timesheet;
+// Глобальний екземпляр для доступу з HTML
+let timesheet1c = null;
+
+// Ініціалізація при завантаженні сторінки
 document.addEventListener('DOMContentLoaded', () => {
-    timesheet = new Timesheet1C();
+    timesheet1c = new Timesheet1CFormat();
 });

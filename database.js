@@ -7,7 +7,7 @@
 class HRDatabase {
     constructor() {
         this.dbName = 'HR_PayrollDB';
-        this.dbVersion = 1;
+        this.dbVersion = 5;
         this.db = null;
         
         // Назви таблиць (stores)
@@ -15,10 +15,18 @@ class HRDatabase {
             employees: 'employees',
             departments: 'departments', 
             positions: 'positions',
+            schedules: 'schedules',
+            scheduleTemplates: 'scheduleTemplates',
+            productionCalendar: 'productionCalendar',
+            holidays: 'holidays',
+            workingDayAdjustments: 'workingDayAdjustments',
             timesheet: 'timesheet',
             payroll: 'payroll',
+            payslips: 'payslips',
+            payslipTemplates: 'payslipTemplates',
             vacations: 'vacations',
             sickLeaves: 'sickLeaves',
+            businessTrips: 'businessTrips',
             settings: 'settings'
         };
     }
@@ -100,6 +108,30 @@ class HRDatabase {
             timesheetStore.createIndex('monthYear', 'monthYear', { unique: false });
         }
 
+        // Таблиця графіків роботи
+        if (!this.db.objectStoreNames.contains(this.stores.schedules)) {
+            const schedulesStore = this.db.createObjectStore(this.stores.schedules, {
+                keyPath: 'id',
+                autoIncrement: true
+            });
+            
+            schedulesStore.createIndex('name', 'name', { unique: false });
+            schedulesStore.createIndex('type', 'type', { unique: false });
+            schedulesStore.createIndex('status', 'status', { unique: false });
+        }
+        
+        // Таблиця шаблонів графіків
+        if (!this.db.objectStoreNames.contains(this.stores.scheduleTemplates)) {
+            const scheduleTemplatesStore = this.db.createObjectStore(this.stores.scheduleTemplates, {
+                keyPath: 'id',
+                autoIncrement: true
+            });
+            
+            scheduleTemplatesStore.createIndex('name', 'name', { unique: false });
+            scheduleTemplatesStore.createIndex('type', 'type', { unique: false });
+            scheduleTemplatesStore.createIndex('isDefault', 'isDefault', { unique: false });
+        }
+
         // Таблиця розрахунку зарплати
         if (!this.db.objectStoreNames.contains(this.stores.payroll)) {
             const payrollStore = this.db.createObjectStore(this.stores.payroll, {
@@ -124,6 +156,43 @@ class HRDatabase {
             vacationsStore.createIndex('year', 'year', { unique: false });
         }
 
+        // Таблиця виробничого календаря
+        if (!this.db.objectStoreNames.contains(this.stores.productionCalendar)) {
+            const productionCalendarStore = this.db.createObjectStore(this.stores.productionCalendar, {
+                keyPath: 'id',
+                autoIncrement: true
+            });
+            
+            productionCalendarStore.createIndex('date', 'date', { unique: false });
+            productionCalendarStore.createIndex('year', 'year', { unique: false });
+            productionCalendarStore.createIndex('type', 'type', { unique: false });
+        }
+        
+        // Таблиця свят
+        if (!this.db.objectStoreNames.contains(this.stores.holidays)) {
+            const holidaysStore = this.db.createObjectStore(this.stores.holidays, {
+                keyPath: 'id',
+                autoIncrement: true
+            });
+            
+            holidaysStore.createIndex('name', 'name', { unique: false });
+            holidaysStore.createIndex('date', 'date', { unique: false });
+            holidaysStore.createIndex('type', 'type', { unique: false });
+            holidaysStore.createIndex('isRecurring', 'isRecurring', { unique: false });
+        }
+        
+        // Таблиця налаштувань робочих днів
+        if (!this.db.objectStoreNames.contains(this.stores.workingDayAdjustments)) {
+            const workingDayAdjustmentsStore = this.db.createObjectStore(this.stores.workingDayAdjustments, {
+                keyPath: 'id',
+                autoIncrement: true
+            });
+            
+            workingDayAdjustmentsStore.createIndex('date', 'date', { unique: false });
+            workingDayAdjustmentsStore.createIndex('type', 'type', { unique: false });
+            workingDayAdjustmentsStore.createIndex('reason', 'reason', { unique: false });
+        }
+
         // Таблиця лікарняних
         if (!this.db.objectStoreNames.contains(this.stores.sickLeaves)) {
             const sickLeavesStore = this.db.createObjectStore(this.stores.sickLeaves, {
@@ -133,6 +202,42 @@ class HRDatabase {
             
             sickLeavesStore.createIndex('employeeId', 'employeeId', { unique: false });
             sickLeavesStore.createIndex('startDate', 'startDate', { unique: false });
+        }
+
+        // Таблиця розрахункових листків
+        if (!this.db.objectStoreNames.contains(this.stores.payslips)) {
+            const payslipsStore = this.db.createObjectStore(this.stores.payslips, {
+                keyPath: 'id',
+                autoIncrement: true
+            });
+            
+            payslipsStore.createIndex('employeeId', 'employeeId', { unique: false });
+            payslipsStore.createIndex('payrollId', 'payrollId', { unique: false });
+            payslipsStore.createIndex('monthYear', 'monthYear', { unique: false });
+            payslipsStore.createIndex('status', 'status', { unique: false });
+        }
+
+        // Таблиця шаблонів розрахункових листків
+        if (!this.db.objectStoreNames.contains(this.stores.payslipTemplates)) {
+            const payslipTemplatesStore = this.db.createObjectStore(this.stores.payslipTemplates, {
+                keyPath: 'id',
+                autoIncrement: true
+            });
+            
+            payslipTemplatesStore.createIndex('name', 'name', { unique: false });
+            payslipTemplatesStore.createIndex('type', 'type', { unique: false });
+            payslipTemplatesStore.createIndex('isDefault', 'isDefault', { unique: false });
+        }
+
+        // Таблиця відряджень
+        if (!this.db.objectStoreNames.contains(this.stores.businessTrips)) {
+            const businessTripsStore = this.db.createObjectStore(this.stores.businessTrips, {
+                keyPath: 'id',
+                autoIncrement: true
+            });
+            businessTripsStore.createIndex('employeeId', 'employeeId', { unique: false });
+            businessTripsStore.createIndex('status', 'status', { unique: false });
+            businessTripsStore.createIndex('startDate', 'startDate', { unique: false });
         }
 
         // Таблиця налаштувань
@@ -391,6 +496,47 @@ class HRDatabase {
             for (const setting of defaultSettings) {
                 await this.add(this.stores.settings, setting);
             }
+
+            // Створюємо базовий шаблон розрахункового листка
+            const defaultPayslipTemplate = {
+                name: 'Стандартний розрахунковий листок',
+                type: 'standard',
+                isDefault: true,
+                description: 'Базовий шаблон відповідно до українського законодавства',
+                structure: {
+                    header: {
+                        companyName: true,
+                        period: true,
+                        employeeInfo: true
+                    },
+                    earnings: [
+                        { code: 'basic_salary', name: 'Основна заробітна плата', required: true },
+                        { code: 'overtime', name: 'Доплата за понаднормові', required: false },
+                        { code: 'bonus', name: 'Премія', required: false },
+                        { code: 'vacation_pay', name: 'Відпускні', required: false }
+                    ],
+                    deductions: [
+                        { code: 'income_tax', name: 'ПДФО', required: true },
+                        { code: 'military_tax', name: 'Військовий збір', required: true },
+                        { code: 'social_tax', name: 'ЄСВ', required: true },
+                        { code: 'other', name: 'Інші утримання', required: false }
+                    ],
+                    footer: {
+                        netSalary: true,
+                        signature: true,
+                        date: true
+                    }
+                },
+                styling: {
+                    fontSize: '12px',
+                    fontFamily: 'Arial, sans-serif',
+                    headerColor: '#2c3e50',
+                    borderColor: '#bdc3c7'
+                },
+                createdAt: new Date().toISOString()
+            };
+            
+            await this.add(this.stores.payslipTemplates, defaultPayslipTemplate);
             
             console.log('Початкові дані створені успішно');
             
